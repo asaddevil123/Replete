@@ -262,7 +262,7 @@
 // an async function and call it, then wait for the returned Promise to
 // resolve. The difficulty here is that we lose eval's intrinsic ability to
 // return its trailing value. We emulate this behavior by assigning every
-// value-producing statement to the '$value' variable and returning it.
+// value-producing statement to an '$await' variable and returning it.
 
 // Thus, source like
 
@@ -277,14 +277,15 @@
 // becomes
 
 //      (async function () {
+//          let $await;
 //          let response;
 //          if (do_fetch) {
-//              $value = response = await fetch("https://site.com");
-//              $value = await response.json();
+//              $await = response = await fetch("https://site.com");
+//              $await = await response.json();
 //          } else {
-//              $value = console.log("Skipping.");
+//              $await = console.log("Skipping.");
 //          }
-//          return $value;
+//          return $await;
 //      }());
 
 /*jslint node */
@@ -941,16 +942,16 @@ function replize(
     if (top_analysis.wait) {
         alterations.unshift([
             {start: 0, end: 0},
-            "(async function () {"
+            "(async function () {let $await;"
         ]);
         alterations.push([
             {start: source.length, end: source.length},
-            "\nreturn $value;}());"
+            "\nreturn $await;}());"
         ]);
         top_analysis.values.forEach(function (node) {
             alterations.push([
                 {start: node.start, end: node.start},
-                "$value = "
+                "$await = "
             ]);
         });
     }
