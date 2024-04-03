@@ -22,8 +22,7 @@ function evaluate(script, import_specifiers, wait) {
         })
     ).then(function (modules) {
 
-// The script is evaluated in the global scope, so it does not have access to
-// any local variables. The imported modules are provided as a global variable.
+// The imported modules are provided as a global variable.
 
         window.$imports = modules;
 

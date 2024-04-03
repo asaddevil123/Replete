@@ -34,7 +34,7 @@ function make_node_cmdl(
 
     env = {}
 ) {
-    return make_cmdl(function spawn_node_process(tcp_port) {
+    return make_cmdl(function spawn_process(tcp_port) {
 
 // Make sure we have "file:" URLs for the loader and padawan scripts. By
 // default, Node.js is not capable of importing modules over HTTP. We specify a

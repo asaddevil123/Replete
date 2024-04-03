@@ -1,6 +1,6 @@
 # Replete
 
-Replete is an evaluator for JavaScript modules. It enables a highly interactive style of programming called __REPL-driven development__. Replete can evaluate modules in the browser, Node.js and Deno.
+Replete is an evaluator for JavaScript modules. It enables a highly interactive style of programming called __REPL-driven development__. Replete can evaluate modules in the browser, Node.js, Deno and Bun.
 
 When integrated with your text editor, Replete becomes part of your development environment. Source code is sent directly from your editor to Replete, where it is evaluated. Anything from a mere expression to a whole file may be evaluated at a time. The resulting value (or an exception) is reported back for perusal.
 
@@ -13,7 +13,7 @@ Replete encourages the development of modules in isolation, rather than in the c
 Replete is in the Public Domain, and does not come with a warranty. It is at least as dangerous as the source code it is asked to import or evaluate, so be careful.
 
 ## Files
-Replete is distributed as a collection of source files. Each module listed below contains usage instructions, and is compatible with both Node.js and Deno.
+Replete is distributed as a collection of source files. Each module listed below contains its own usage instructions.
 
 - [_replete.js_](./replete.js):
     Replete as a program. It takes command line arguments for basic configuration.
@@ -22,11 +22,12 @@ Replete is distributed as a collection of source files. Each module listed below
     Replete as a process. This module exports a function that starts a Replete instance and binds it to the current process's stdin and stdout. Use this module if you wish to configure Replete programmatically.
 
 - [_make.js_](./make.js):
-    Replete as a module. It exports a function that can be used to create multiple Replete instances. Each instance operates a browser REPL, a Node.js REPL, and a Deno REPL.
+    Replete as a module. It exports a function that can be used to create multiple Replete instances. Each instance operates REPLs for a variety of environments.
 
 - [_browser_repl.js_](./browser_repl.js),
   [_node_repl.js_](./node_repl.js),
   [_deno_repl.js_](./deno_repl.js):
+  [_bun_repl.js_](./bun_repl.js):
     Modules, each exporting a constructor for a REPL specialized to a particular environment.
 
 - [_repl.js_](./repl.js):
@@ -39,7 +40,7 @@ Replete is distributed as a collection of source files. Each module listed below
     A directory containing source code for the WEBL, used by the browser REPL. The WEBL is a standalone tool for remotely evaluating source code in the browser. See webl/README.md.
 
 - [_cmdl/_](./cmdl/):
-    A directory containing the source code for the CMDL, like the WEBL but for command-line runtimes like Node.js and Deno. See cmdl/README.md.
+    A directory containing the source code for the CMDL, like the WEBL but for command-line runtimes like Node.js. See cmdl/README.md.
 
 - [_package.json_](./package.json):
     A Node.js package manifest. It declares Replete's dependencies and tells Node to interpret the above files as modules.
@@ -66,7 +67,7 @@ The hostname of the browser REPL. When this option is omitted, the browser REPL 
 ### spec.which_node (or `--which_node`)
 The path to the Node.js binary (`node`). If `node` is in the `PATH` (see `spec.node_env`), this can just be `"node"`.
 
-If omitted, and Replete is being run in Deno, the Node.js REPL will not be available.
+If omitted, and Replete is being run in Deno or Bun, the Node.js REPL will not be available.
 
 ### spec.node_args
 An array of command line arguments provided to the `node` process that runs the Node.js REPL, for example `["--inspect=7227"]`. Run `node --help` for a list of available arguments.
@@ -77,13 +78,24 @@ An object containing environment variables made available to the `node` process 
 ### spec.which_deno (or `--which_deno`)
 The path to the Deno binary (`deno`). If `deno` is in the `PATH` (see `spec.deno_env`), this can just be `"deno"`.
 
-If omitted, and Replete is being run in Node.js, the Deno REPL will not be available.
+If omitted, and Replete is being run in Node.js or Bun, the Deno REPL will not be available.
 
 ### spec.deno_args
 An array of command line arguments provided to the `deno` process that runs the Deno REPL, for example `["--allow-all"]`. By default, this array is empty and so the Deno REPL runs with no permissions. Run `deno help run` for a list of available arguments.
 
 ### spec.deno_env
 Same as `spec.node_env`, but for the Deno REPL.
+
+### spec.which_bun (or `--which_bun`)
+The path to the Bun binary (`bun`). If `bun` is in the `PATH` (see `spec.bun_env`), this can just be `"bun"`.
+
+If omitted, and Replete is being run in Node.js or Deno, the Bun REPL will not be available.
+
+### spec.bun_args
+An array of command line arguments provided to the `bun` process that runs the Bun REPL, for example `["--smol"]`. Run `bun --help` for a list of available arguments.
+
+### spec.bun_env
+Same as `spec.node_env`, but for the Bun REPL.
 
 ### spec.root_locator
 The file URL string of the "root" directory. Files inside this directory may be read and served over the network by Replete. Files outside this directory will not be accessible.
@@ -170,27 +182,27 @@ Called with a string representation of any exceptions that occur outside of eval
 ## Communication
 Replete communicates by sending and receiving command and result messages.
 
-       +------------------------------------------+
-       |                                          |
-       |               Your program               |
-       |         (such as a text editor)          |
-       |                                          |
-       +----------------+-------------------------+
-                        |        ^
-                        |        |
-       Command messages |        | Result messages
-                        |        |
-                        V        |
-    +----------------------------+--------------------+
-    |                                                 |
-    |                    Replete                      |
-    |                                                 |
-    +---------+----------------+--------------+-------+
-              |                |              |
-              v                v              v
-      +--------------+ +--------------+ +-----------+
-      | Browser REPL | | Node.js REPL | | Deno REPL |
-      +--------------+ +--------------+ +-----------+
+             +------------------------------------------+
+             |                                          |
+             |               Your program               |
+             |         (such as a text editor)          |
+             |                                          |
+             +----------------+-------------------------+
+                              |        ^
+                              |        |
+             Command messages |        | Result messages
+                              |        |
+                              V        |
+    +----------------------------------+-----------------------+
+    |                                                          |
+    |                           Replete                        |
+    |                                                          |
+    +-------+----------------+--------------+-------------+----+
+            |                |              |             |
+            v                v              v             v
+    +--------------+ +--------------+ +-----------+ +----------+
+    | Browser REPL | | Node.js REPL | | Deno REPL | | Bun REPL |
+    +--------------+ +--------------+ +-----------+ +----------+
 
 Messages are JSON-encodable objects.
 
@@ -198,7 +210,7 @@ A __command__ message is an object with the following properties:
 
 - __source__: The source code to be evaluated, as a string. The source may contain import and export statements.
 - __locator__: The locator of the module containing the source. It is required if the source contains any import statements that are not fully qualified.
-- __platform__: Either `"browser"`, `"node"` or `"deno"`. This property determines which REPL is used to evaluate the source.
+- __platform__: Either `"browser"`, `"node"`, `"deno"`, or `"bun"`. This property determines which REPL is used to evaluate the source.
 - __scope__: The name of the scope, which can be any string. If undefined, the scope `""` is chosen. The scope is created if it does not exist.
 - __id__: If defined, this property is copied verbatim onto the corresponding result messages. It can be used to associate a result with its command. It can be any value.
 

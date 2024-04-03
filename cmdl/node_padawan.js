@@ -1,8 +1,9 @@
-// This file is a Node.js program whose sole purpose is to evaluate JavaScript
-// source code in its global context, and report the results. When it is run, it
-// connects to a TCP server and awaits instructions.
+// This file is a Node.js or Bun program whose sole purpose is to evaluate
+// JavaScript source code in its global context, and report the results. When
+// it is run, it connects to a TCP server and awaits instructions.
 
 //  $ node /path/to/node_padawan.js <tcp_port>
+//  $ bun run /path/to/node_padawan.js <tcp_port>
 
 // The 'tcp_port' argument is the port number of a TCP server running on
 // localhost. See cmdl.js for a description of the message protocol.
@@ -10,9 +11,49 @@
 // Any exceptions that occur outside of evaluation are printed to stderr.
 
 import net from "node:net";
-import vm from "node:vm";
 import util from "node:util";
 import readline from "node:readline";
+
+// Bun does not yet support HTTP imports. Pending
+// https://github.com/oven-sh/bun/issues/38, we approximate this behavior with
+// a plugin.
+
+const rx_any = /./;
+const rx_http = /^https?:\/\//;
+const rx_relative_path = /^\.\.?\//;
+
+function load_http_module(href) {
+    return fetch(href).then(function (response) {
+        return response.text().then(function (text) {
+            return (
+                response.ok
+                ? {contents: text, loader: "js"}
+                : Promise.reject(
+                    new Error("Failed to load module '" + href + "': " + text)
+                )
+            );
+        });
+    });
+}
+
+if (typeof Bun === "object") {
+    Bun.plugin({
+        name: "http_imports",
+        setup(build) {
+            build.onResolve({filter: rx_relative_path}, function (args) {
+                if (rx_http.test(args.importer)) {
+                    return {path: new URL(args.path, args.importer).href};
+                }
+            });
+            build.onLoad({filter: rx_any, namespace: "http"}, function (args) {
+                return load_http_module("http:" + args.path);
+            });
+            build.onLoad({filter: rx_any, namespace: "https"}, function (args) {
+                return load_http_module("https:" + args.path);
+            });
+        }
+    });
+}
 
 function evaluate(script, import_specifiers, wait) {
 
@@ -25,16 +66,14 @@ function evaluate(script, import_specifiers, wait) {
         })
     ).then(function (modules) {
 
-// The script is evaluated in the global scope so that it does not have access
-// to any local variables. The imported modules are provided as a global
-// variable.
+// The imported modules are provided as a global variable.
 
-        global.$imports = modules;
-        const value = vm.runInThisContext(script, {
-            importModuleDynamically(specifier) {
-                return import(specifier);
-            }
-        });
+        globalThis.$imports = modules;
+
+// The script is evaluated using an "indirect" eval, depriving it of access to
+// the local scope.
+
+        const value = globalThis.eval(script);
         return (
             wait
             ? Promise.resolve(value).then(util.inspect)
@@ -45,53 +84,53 @@ function evaluate(script, import_specifiers, wait) {
     }).catch(function (exception) {
         return {
             exception: (
-                (
-                    exception
-                    && typeof exception.stack === "string"
+                typeof Bun === "object"
+                ? Bun.inspect(exception)
+                : (
+                    typeof exception?.stack === "string"
+                    ? exception.stack
+                    : "Exception: " + util.inspect(exception)
                 )
-                ? exception.stack
-                : "Exception: " + util.inspect(exception)
             )
         };
     });
 }
 
 // Connect to the TCP server on the specified port, then wait for instructions.
-
 const socket = net.connect(
     Number.parseInt(process.argv[2]),
-    "127.0.0.1", // match the hostname chosen by cmdl.js
-    function on_connect() {
-        readline.createInterface({input: socket}).on("line", function (line) {
+    "127.0.0.1" // match the hostname chosen by cmdl.js
+);
+socket.once("connect", function () {
+    readline.createInterface({input: socket}).on("line", function (line) {
 
 // Parse each line as a command object. Evaluate the script, eventually sending
 // a report back to the server.
 
-            const command = JSON.parse(line);
-            return evaluate(
-                command.script,
-                command.imports,
-                command.wait
-            ).then(
-                function on_evaluated(report) {
-                    report.id = command.id;
-                    return socket.write(JSON.stringify(report) + "\n");
-                }
-            );
-        });
+        const command = JSON.parse(line);
+        return evaluate(
+            command.script,
+            command.imports,
+            command.wait
+        ).then(
+            function on_evaluated(report) {
+                report.id = command.id;
+                return socket.write(JSON.stringify(report) + "\n");
+            }
+        );
+    });
 
 // Uncaught exceptions that occur as a result of, but not during evaluation are
 // non-fatal. They are caught by a global handler and reported to stderr.
 
-        process.on("uncaughtException", console.error);
-        process.on("unhandledRejection", console.error);
+    process.on("uncaughtException", console.error);
+    process.on("unhandledRejection", console.error);
+});
+socket.once("error", function (error) {
 
-// On the other hand, any problem with the transport mechanism results in
-// the immediate and violent death of the process.
+// Any problem with the transport mechanism results in the immediate and violent
+// death of the process.
 
-        socket.on("error", function (error) {
-            console.error(error);
-            return process.exit(1);
-        });
-    }
-);
+    console.error(error);
+    return process.exit(1);
+});

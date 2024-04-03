@@ -63,7 +63,7 @@ function make_deno_cmdl(
 
     env = {}
 ) {
-    return make_cmdl(function spawn_deno_process(tcp_port) {
+    return make_cmdl(function spawn_process(tcp_port) {
         return new Promise(function (resolve, reject) {
             const subprocess = child_process.spawn(
                 which_deno,

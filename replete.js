@@ -3,8 +3,10 @@
 // It exposes a command line interface facilitating basic configuration. If you
 // need more control over Replete, use ./run.js directly.
 
-// This program can be run from the command line in either Node.js or Deno.
-// Even if it is run in Node.js, a Deno REPL can still be used (and vice versa).
+// This program can be run from the command line from any runtime that exposes
+// the Node.js built-in modules, such as "node:fs". The choice of runtime used
+// to run Replete does not affect which REPLs are available, because each REPL
+// is run as a separate process.
 
 // To start Replete in Node.js v18.6.0+, run
 
@@ -21,6 +23,10 @@
 //          --importmap https://deno.land/x/replete/import_map.json \
 //          https://deno.land/x/replete/replete.js \
 //          [options]
+
+// To start Replete in Bun v1.1.0+, run
+
+//      $ bun run /path/to/replete.js [options]
 
 // The following options are supported:
 
@@ -43,8 +49,15 @@
 //          See README.md.
 
 //      --deno_debugger_port=<port>
-//          Like the --node_debugger_port option, but for Deno. Both runtimes
-//          use the V8 Inspector Protocol.
+//          Like the --node_debugger_port option, but for Deno. Exposes the V8
+//          Inspector Protocol.
+
+//      --which_bun=<path>
+//          See README.md.
+
+//      --bun_debugger_port=<port>
+//          Like the --node_debugger_port option, but for Bun. Exposes the
+//          WebKit Inspector Protocol.
 
 // The process communicates via its stdin and stdout. See ./run.js for a
 // description of the stream protocol.
@@ -64,7 +77,8 @@ let spec = {
 // development, where it is not known in advance what the REPL may be asked to
 // do.
 
-    deno_args: ["--allow-all"]
+    deno_args: ["--allow-all"],
+    bun_args: []
 };
 
 // Parse the command line arguments into a spec object.
@@ -84,6 +98,10 @@ if (Number.isSafeInteger(spec.node_debugger_port)) {
 if (Number.isSafeInteger(spec.deno_debugger_port)) {
     spec.deno_args.push("--inspect=127.0.0.1:" + spec.deno_debugger_port);
     delete spec.deno_debugger_port;
+}
+if (Number.isSafeInteger(spec.bun_debugger_port)) {
+    spec.bun_args.push("--inspect=" + spec.bun_debugger_port);
+    delete spec.bun_debugger_port;
 }
 
 run(spec);

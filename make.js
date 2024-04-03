@@ -1,13 +1,14 @@
 // This module exports a function that makes a Replete instance. A Replete
-// instance can be used to evaluate code in the browser, Node.js and Deno.
+// instance can be used to evaluate code in a variety of JavaScript runtimes.
 
-/*jslint node, deno */
+/*jslint node, deno, bun */
 
 import fs from "node:fs";
 import node_resolve from "./node_resolve.js";
+import make_browser_repl from "./browser_repl.js";
 import make_node_repl from "./node_repl.js";
 import make_deno_repl from "./deno_repl.js";
-import make_browser_repl from "./browser_repl.js";
+import make_bun_repl from "./bun_repl.js";
 
 function make_replete({
 
@@ -32,6 +33,12 @@ function make_replete({
     which_deno,
     deno_args,
     deno_env,
+
+// Bun REPL configuration.
+
+    which_bun,
+    bun_args,
+    bun_env,
 
 // These are the capabilities given to the REPLs. See README.md for an
 // explanation of each.
@@ -148,6 +155,14 @@ function make_replete({
             which_deno,
             deno_args,
             deno_env
+        );
+    }
+    if (which_bun !== undefined) {
+        repls.bun = make_bun_repl(
+            capabilities,
+            which_bun,
+            bun_args,
+            bun_env
         );
     }
 

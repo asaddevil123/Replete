@@ -41,7 +41,7 @@
 //          --importmap https://deno.land/x/replete/import_map.json \
 //          custom_replete.js
 
-/*jslint node, deno */
+/*jslint node, deno, bun */
 
 import os from "node:os";
 import process from "node:process";
@@ -63,11 +63,14 @@ function run(spec) {
     );
     if (typeof Deno === "object") {
         spec.which_deno = spec.which_deno ?? Deno.execPath();
+    } else if (typeof Bun === "object") {
+        spec.which_bun = spec.which_bun ?? process.argv[0];
     } else {
         spec.which_node = spec.which_node ?? process.argv[0];
     }
     spec.node_env = spec.node_env ?? process.env;
     spec.deno_env = spec.deno_env ?? process.env;
+    spec.bun_env = spec.bun_env ?? process.env;
     const line_reader = readline.createInterface({input: process.stdin});
     const {start, send, stop} = make_replete(spec);
 
