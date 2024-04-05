@@ -1060,10 +1060,9 @@ function make_repl(capabilities, on_start, on_eval, on_stop, specify) {
         if (locating[key] !== undefined) {
             return locating[key];
         }
-        locating[key] = capabilities.locate(
-            specifier,
-            parent_locator
-        ).catch(function on_fail(exception) {
+        locating[key] = Promise.resolve().then(function () {
+            return capabilities.locate(specifier, parent_locator);
+        }).catch(function on_fail(exception) {
             delete locating[key];
             return Promise.reject(exception);
         });
@@ -1086,15 +1085,21 @@ function make_repl(capabilities, on_start, on_eval, on_stop, specify) {
             delete analyzing[locator];
         }
 
-        reading[locator] = capabilities.read(locator).then(function (content) {
+        reading[locator] = Promise.resolve(
+            locator
+        ).then(
+            capabilities.read
+        ).then(function (content) {
 
 // Invalidate the cache next time the file is modified. There is the potential
 // for a race condition here, if the file is modified after it has been read
 // but before the watch begins. I suspect this will not be a problem in
 // practice.
 
-            capabilities.watch(
+            Promise.resolve(
                 locator
+            ).then(
+                capabilities.watch
             ).then(
                 invalidate
             ).catch(function (exception) {
