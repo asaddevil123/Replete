@@ -1,8 +1,8 @@
 // The 'run' function starts a Replete instance, attaching it to the current
 // process's stdin and stdout. It can only be called once per process. It
-// handles termination signals gracefully. It takes a 'spec' object described
-// in ./README.md and returns an 'exit' function that safely stops Replete and
-// exits the process.
+// handles termination signals gracefully. It takes an 'options' object
+// described in ./README.md and returns an 'exit' function that safely stops
+// Replete and exits the process.
 
 // Messages are sent in both directions, each occupying a single line. A message
 // is a JSON-encoded object. Command messages are read from stdin, and result
@@ -49,30 +49,31 @@ import readline from "node:readline";
 import url from "node:url";
 import make_replete from "./make.js";
 
-function run(spec) {
+function run(options) {
 
     function on_result(message) {
         process.stdout.write(JSON.stringify(message) + "\n");
     }
 
-    spec = Object.assign({}, spec);
-    spec.on_result = on_result;
-    spec.root_locator = (
-        spec.root_locator
+    options = Object.assign({}, options);
+    options.on_result = on_result;
+    options.root_locator = (
+        options.root_locator
         ?? url.pathToFileURL(process.cwd()).href
     );
     if (typeof Deno === "object") {
-        spec.which_deno = spec.which_deno ?? Deno.execPath();
+        options.which_deno = options.which_deno ?? Deno.execPath();
     } else if (typeof Bun === "object") {
-        spec.which_bun = spec.which_bun ?? process.argv[0];
+        options.which_bun = options.which_bun ?? process.argv[0];
     } else {
-        spec.which_node = spec.which_node ?? process.argv[0];
+        options.which_node = options.which_node ?? process.argv[0];
     }
-    spec.node_env = spec.node_env ?? process.env;
-    spec.deno_env = spec.deno_env ?? process.env;
-    spec.bun_env = spec.bun_env ?? process.env;
+    options.node_env = options.node_env ?? process.env;
+    options.deno_env = options.deno_env ?? process.env;
+    options.bun_env = options.bun_env ?? process.env;
+    options.tjs_env = options.tjs_env ?? process.env;
     const line_reader = readline.createInterface({input: process.stdin});
-    const {start, send, stop} = make_replete(spec);
+    const {start, send, stop} = make_replete(options);
 
     function exit() {
         line_reader.close();

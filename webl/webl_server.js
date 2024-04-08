@@ -12,6 +12,7 @@ const r2d2_svg_url = new URL("./r2d2.svg", import.meta.url);
 const c3po_svg_url = new URL("./c3po.svg", import.meta.url);
 const webl_js_url = new URL("./webl.js", import.meta.url);
 const webl_client_js_url = new URL("./webl_client.js", import.meta.url);
+const webl_inspect_js_url = new URL("./webl_inspect.js", import.meta.url);
 const webl_relay_js_url = new URL("./webl_relay.js", import.meta.url);
 
 // There is at least one Firefox bug that is resolved by including a trailing
@@ -203,6 +204,9 @@ function make_webl_server(
         }
         if (req.url === "/webl_client.js") {
             return serve_file(webl_client_js_url, "text/javascript");
+        }
+        if (req.url === "/webl_inspect.js") {
+            return serve_file(webl_inspect_js_url, "text/javascript");
         }
         if (req.url === "/webl_relay.js") {
             return serve_file(webl_relay_js_url, "text/javascript");

@@ -1,95 +1,65 @@
-// This REPL evaluates JavaScript source code in an isolated Deno process. See
-// repl.js and deno_cmdl.js for more information.
+// This REPL evaluates JavaScript in a Deno process.
+
+// If you provide environment variables via 'env', don't forget to include
+// "--allow-env" in the 'args' array.
 
 /*jslint node */
 
-import http from "node:http";
-import make_repl from "./repl.js";
-import make_deno_cmdl from "./cmdl/deno_cmdl.js";
+import child_process from "node:child_process";
+import make_cmdl_repl from "./cmdl_repl.js";
+const padawan_url = new URL("./deno_padawan.js", import.meta.url);
 
-function make_deno_repl(
-    capabilities,
-    which_deno,
-    run_args = [],
-    env = {}
-) {
-    const cmdl = make_deno_cmdl(
-        function on_stdout(buffer) {
-            return capabilities.out(buffer.toString());
-        },
-        function on_stderr(buffer) {
-            return capabilities.err(buffer.toString());
-        },
-        which_deno,
-        run_args,
-        Object.assign({NO_COLOR: "1"}, env)
-    );
+function allow_host(run_args, host) {
 
-// The Deno REPL uses an HTTP server to serve modules to the padawan, which
-// imports them via the 'import' function. It listens on the system's preferred
-// loopback address, with a port number allocated by the system.
+// Deno only permits the --allow-net argument to appear once in its list of run
+// arguments. This means we need to jump thru hoops to avoid any duplication.
 
-    let http_server;
-    let http_server_port;
-    let http_server_host = "localhost";
+    if (run_args.includes("--allow-net")) {
 
-    function on_start(serve) {
-        http_server = http.createServer(serve);
-        return Promise.all([
-            new Promise(function start_http_server(resolve, reject) {
-                http_server.on("error", reject);
-                return http_server.listen(0, http_server_host, function () {
-                    http_server_port = http_server.address().port;
-                    return resolve();
-                });
-            }),
-            cmdl.create()
-        ]);
+// All hosts are already allowed.
+
+        return run_args;
     }
 
-    function on_eval(
-        on_result,
-        produce_script,
-        dynamic_specifiers,
-        import_specifiers,
-        wait
-    ) {
-        return cmdl.eval(
-            produce_script(dynamic_specifiers),
-            import_specifiers,
-            wait
-        ).then(function (report) {
-            return on_result(report.evaluation, report.exception);
-        });
-    }
+// If the specific form of --allow-net is present, we append 'host' onto its
+// list of hosts.
 
-    function on_stop() {
-        return Promise.all([
-            new Promise(function (resolve) {
-                return http_server.close(resolve);
-            }),
-            cmdl.destroy()
-        ]);
-    }
-
-    function specify(locator) {
+    run_args = run_args.map(function (arg) {
         return (
-            locator.startsWith("file:///")
-            ? (
-                "http://" + http_server_host + ":" + http_server_port
-                + locator.replace("file://", "")
-            )
-            : locator
+            arg.startsWith("--allow-net=")
+            ? arg + "," + host
+            : arg
         );
-    }
+    });
 
-    return make_repl(
-        capabilities,
-        on_start,
-        on_eval,
-        on_stop,
-        specify
+// Otherwise we add the --allow-net.
+
+    return (
+        !run_args.some((arg) => arg.startsWith("--allow-net="))
+        ? run_args.concat("--allow-net=" + host)
+        : run_args
     );
+}
+
+function spawn_deno_padawan(tcp_port, which, args = [], env = {}) {
+    return Promise.resolve(child_process.spawn(
+        which,
+        [
+            "run",
+            ...allow_host(args, "127.0.0.1:" + tcp_port),
+            padawan_url.href,
+            String(tcp_port)
+        ],
+        {
+            env: Object.assign({NO_COLOR: "1"}, env)
+        }
+    ));
+}
+
+function make_deno_repl(capabilities, which, args, env) {
+    return make_cmdl_repl(capabilities, function spawn_padawan(tcp_port) {
+        return spawn_deno_padawan(tcp_port, which, args, env);
+    });
 }
 
 export default Object.freeze(make_deno_repl);

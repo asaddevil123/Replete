@@ -3,10 +3,10 @@
 // It exposes a command line interface facilitating basic configuration. If you
 // need more control over Replete, use ./run.js directly.
 
-// This program can be run from the command line from any runtime that exposes
-// the Node.js built-in modules, such as "node:fs". The choice of runtime used
-// to run Replete does not affect which REPLs are available, because each REPL
-// is run as a separate process.
+// This program can be run from the command line using any runtime that
+// implements the Node.js built-in modules, such as "node:fs". The choice of
+// runtime used to run Replete does not affect which REPLs are available,
+// because each REPL is run as a separate process.
 
 // To start Replete in Node.js v18.6.0+, run
 
@@ -59,18 +59,21 @@
 //          Like the --node_debugger_port option, but for Bun. Exposes the
 //          WebKit Inspector Protocol.
 
+//      --which_tjs=<path>
+//          See README.md.
+
 // The process communicates via its stdin and stdout. See ./run.js for a
 // description of the stream protocol.
 
 // The REPLs will not be able to read files outside the current working
 // directory.
 
-/*jslint node, deno */
+/*jslint node */
 
 import process from "node:process";
 import run from "./run.js";
 
-let spec = {
+let options = {
     node_args: [],
 
 // The Deno REPL is run with unlimited permissions. This seems justified for
@@ -81,27 +84,27 @@ let spec = {
     bun_args: []
 };
 
-// Parse the command line arguments into a spec object.
+// Parse the command line arguments into an options object.
 
 process.argv.slice(2).forEach(function (argument) {
     const [ignore, name, value] = argument.match(/^--(\w+)=(.*)$/);
-    spec[name] = (
+    options[name] = (
         name.endsWith("_port")
         ? parseInt(value)
         : value
     );
 });
-if (Number.isSafeInteger(spec.node_debugger_port)) {
-    spec.node_args.push("--inspect=" + spec.node_debugger_port);
-    delete spec.node_debugger_port;
+if (Number.isSafeInteger(options.node_debugger_port)) {
+    options.node_args.push("--inspect=" + options.node_debugger_port);
+    delete options.node_debugger_port;
 }
-if (Number.isSafeInteger(spec.deno_debugger_port)) {
-    spec.deno_args.push("--inspect=127.0.0.1:" + spec.deno_debugger_port);
-    delete spec.deno_debugger_port;
+if (Number.isSafeInteger(options.deno_debugger_port)) {
+    options.deno_args.push("--inspect=127.0.0.1:" + options.deno_debugger_port);
+    delete options.deno_debugger_port;
 }
-if (Number.isSafeInteger(spec.bun_debugger_port)) {
-    spec.bun_args.push("--inspect=" + spec.bun_debugger_port);
-    delete spec.bun_debugger_port;
+if (Number.isSafeInteger(options.bun_debugger_port)) {
+    options.bun_args.push("--inspect=" + options.bun_debugger_port);
+    delete options.bun_debugger_port;
 }
 
-run(spec);
+run(options);

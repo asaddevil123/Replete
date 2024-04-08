@@ -8,6 +8,7 @@ import node_resolve from "./node_resolve.js";
 import make_browser_repl from "./browser_repl.js";
 import make_node_repl from "./node_repl.js";
 import make_deno_repl from "./deno_repl.js";
+import make_tjs_repl from "./tjs_repl.js";
 import make_bun_repl from "./bun_repl.js";
 
 function make_replete({
@@ -21,6 +22,8 @@ function make_replete({
 
     browser_port,
     browser_hostname,
+    browser_padawan_type,
+    browser_humanoid,
 
 // Node.js REPL configuration.
 
@@ -33,6 +36,12 @@ function make_replete({
     which_deno,
     deno_args,
     deno_env,
+
+// Txiki REPL configuration.
+
+    which_tjs,
+    tjs_args,
+    tjs_env,
 
 // Bun REPL configuration.
 
@@ -136,11 +145,15 @@ function make_replete({
         err
     });
     const repls = Object.create(null);
-    repls.browser = make_browser_repl(
-        capabilities,
-        browser_port,
-        browser_hostname
-    );
+    if (browser_port !== undefined) {
+        repls.browser = make_browser_repl(
+            capabilities,
+            browser_port,
+            browser_hostname,
+            browser_padawan_type,
+            browser_humanoid
+        );
+    }
     if (which_node !== undefined) {
         repls.node = make_node_repl(
             capabilities,
@@ -165,6 +178,14 @@ function make_replete({
             bun_env
         );
     }
+    if (which_tjs !== undefined) {
+        repls.tjs = make_tjs_repl(
+            capabilities,
+            which_tjs,
+            tjs_args,
+            tjs_env
+        );
+    }
 
     function start() {
         return Promise.all(Object.values(repls).map(function (repl) {
@@ -186,7 +207,12 @@ function make_replete({
         const repl = repls[message.platform];
         if (repl === undefined) {
             return Promise.reject(new Error(
-                "Platform unavailable: " + message.platform
+                "Platform unavailable: " + message.platform + ". "
+                + "Use the \"" + (
+                    message.platform === "browser"
+                    ? "browser_port"
+                    : "which_" + message.platform
+                ) + "\" option."
             ));
         }
         return repl.send(message, function (evaluation, exception) {

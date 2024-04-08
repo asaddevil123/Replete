@@ -1,22 +1,17 @@
-// This file is a Node.js or Bun program whose sole purpose is to evaluate
-// JavaScript source code in its global context, and report the results. When
-// it is run, it connects to a TCP server and awaits instructions.
+// The padawan program for the Deno and Bun CMDLs. See cmdl.js.
 
 //  $ node /path/to/node_padawan.js <tcp_port>
 //  $ bun run /path/to/node_padawan.js <tcp_port>
 
-// The 'tcp_port' argument is the port number of a TCP server running on
-// localhost. See cmdl.js for a description of the message protocol.
-
-// Any exceptions that occur outside of evaluation are printed to stderr.
+// Exceptions that occur outside of evaluation are printed to stderr.
 
 import net from "node:net";
 import util from "node:util";
 import readline from "node:readline";
 
 // Bun does not yet support HTTP imports. Pending
-// https://github.com/oven-sh/bun/issues/38, we approximate this behavior with
-// a plugin.
+// https://github.com/oven-sh/bun/issues/38, we use a plugin to polyfill this
+// behavior.
 
 const rx_any = /./;
 const rx_http = /^https?:\/\//;
@@ -56,23 +51,12 @@ if (typeof Bun === "object") {
 }
 
 function evaluate(script, import_specifiers, wait) {
-
-// The 'evaluate' function evaluates the 'script', after resolving any imported
-// modules. It returns a Promise that resolves to a report object.
-
     return Promise.all(
         import_specifiers.map(function (specifier) {
             return import(specifier);
         })
     ).then(function (modules) {
-
-// The imported modules are provided as a global variable.
-
         globalThis.$imports = modules;
-
-// The script is evaluated using an "indirect" eval, depriving it of access to
-// the local scope.
-
         const value = globalThis.eval(script);
         return (
             wait
@@ -97,6 +81,7 @@ function evaluate(script, import_specifiers, wait) {
 }
 
 // Connect to the TCP server on the specified port, then wait for instructions.
+
 const socket = net.connect(
     Number.parseInt(process.argv[2]),
     "127.0.0.1" // match the hostname chosen by cmdl.js
@@ -120,16 +105,16 @@ socket.once("connect", function () {
         );
     });
 
-// Uncaught exceptions that occur as a result of, but not during evaluation are
-// non-fatal. They are caught by a global handler and reported to stderr.
+// Uncaught exceptions that occur outside of evaluation are non-fatal. They are
+// caught by a global handler and written to stderr.
 
     process.on("uncaughtException", console.error);
     process.on("unhandledRejection", console.error);
 });
 socket.once("error", function (error) {
 
-// Any problem with the transport mechanism results in the immediate and violent
-// death of the process.
+// Any problem with the transport mechanism results in the immediate termination
+// of the process.
 
     console.error(error);
     return process.exit(1);

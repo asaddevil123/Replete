@@ -1,11 +1,56 @@
-// A CMDL is a Node.js interface for instructing a single CMDL padawan process.
+// The CMDL remotely evaluates arbitrary source code in command-line JavaScript
+// runtimes.
 
-// When the CMDL is created, it listens for a TCP connection from the padawan.
-// Via this communication channel, the CMDL asks the padawan to evaluate
-// JavaScript source code and return a report.
+// The CMDL is not a security feature. It should not be used to run untrusted
+// code. Evaluated code will be able to read and write to disk, access the
+// network and start new processes.
 
-// This TCP server sends commands and receives reports, each of which is a
-// JSON-encoded message followed by a newline.
+// Code is evaluated in the global context.
+// Code is evaluated in sloppy mode (as opposed to strict mode).
+// Code is evaluated in a dedicated process.
+
+// A CMDL instance instructs a single padawan. A padawan is a process that is
+// used as an isolated execution environment. If a padawan dies, it is
+// resurrected immediately.
+
+// When a CMDL is created, it waits for a TCP connection to be initiated by the
+// padawan. Via this communication channel, the CMDL instructs the padawan to
+// evaluate JavaScript source code.
+
+// The TCP server sends commands and receives reports, each of which is a
+// JSON-encoded object followed by a newline.
+
+//          +-------------------------------------+
+//          |                                     |
+//          |            Master process           |
+//          |                                     |
+//          |      +-----------------------+      |
+//          |      |                       |      |
+//          |      |          CMDL         |      |
+//          |      |                       |      |
+//          |      +-------+---------------+      |
+//          |              |        ^             |
+//          |              |        |             |
+//          |           command   report          |
+//          |              |        |             |
+//          |              V        |             |
+//          |      +----------------+------+      |
+//          |      |                       |      |
+//          |      |       TCP server      |      |
+//          |      |                       |      |
+//          |      +-------+---------------+      |
+//          |              |        ^             |
+//          |              |        |             |
+//          +--------------|--------|-------------+
+//                         |        |
+//                      command   report
+//                         |        |
+//                         V        |
+//          +-----------------------+-------------+
+//          |                                     |
+//          |           Padawan process           |
+//          |                                     |
+//          +-------------------------------------+
 
 // There is only one kind of command, and that is the "eval" command. The "eval"
 // command is an object containing these properties:
@@ -40,43 +85,18 @@
 //      id:
 //          The ID of the corresponding evaluation.
 
-//                  +-------------------------------------+
-//                  |                                     |
-//                  |           Node.js process           |
-//                  |                                     |
-//                  |      +-----------------------+      |
-//                  |      |                       |      |
-//                  |      |          CMDL         |      |
-//                  |      |                       |      |
-//                  |      +-------+--------^------+      |
-//                  |              |        |             |
-//                  |           command   report          |
-//                  |              |        |             |
-//                  |          +---v--------+---+         |
-//                  |          |                |         |
-//                  |          |   TCP server   |         |
-//                  |          |                |         |
-//                  |          +---+--------^---+         |
-//                  |              |        |             |
-//                  +--------------+--------+-------------+
-//                                 |        |
-//                              command   report
-//                                 |        |
-//                       +---------v--------+---------+
-//                       |                            |
-//                       |      Padawan process       |
-//                       |                            |
-//                       +----------------------------+
-
 import net from "node:net";
 import readline from "node:readline";
 
-function make_cmdl(spawn_padawan) {
+function make_cmdl(spawn_padawan, on_stdout, on_stderr) {
 
-// The 'spawn_padawan' parameter is a function that is responsible for starting
-// a padawan process. It is passed the port number of the running TCP server,
-// and returns a Promise resolving to the ChildProcess object. It may be called
+// The 'spawn_padawan' parameter is the function responsible for starting a
+// padawan process. It is passed the port number of the running TCP server, and
+// returns a Promise resolving to the ChildProcess object. It may be called
 // more than once, to restart the padawan if it dies.
+
+// The 'on_stdout' and 'on_stderr' parameters are functions that are called with
+// a Buffer whenever data is written to stdout or stderr.
 
 // The return value is an object with the same interface as a padawan described
 // in webl_server.js.
@@ -113,8 +133,7 @@ function make_cmdl(spawn_padawan) {
 // Starts the padawan and waits for it to connect to the TCP server.
 
         function register(the_process) {
-            padawan_process = the_process;
-            padawan_process.on("exit", function () {
+            the_process.on("exit", function () {
 
 // Inform any waiting callbacks of the failure.
 
@@ -128,10 +147,19 @@ function make_cmdl(spawn_padawan) {
 // "process.exit();". In such a case, we get the padawan back on line as soon as
 // possible.
 
-                if (!padawan_process.killed && socket !== undefined) {
+                if (!the_process.killed && socket !== undefined) {
                     start_padawan();
                 }
                 socket = undefined;
+            });
+            padawan_process = the_process;
+            return new Promise(function (resolve, reject) {
+                the_process.on("error", reject);
+                the_process.on("spawn", function () {
+                    the_process.stdout.on("data", on_stdout);
+                    the_process.stderr.on("data", on_stderr);
+                    resolve(the_process);
+                });
             });
         }
 

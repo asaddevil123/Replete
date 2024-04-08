@@ -1,15 +1,8 @@
-// This file is a Deno program whose sole purpose is to evaluate JavaScript
-// source code in its global context, and report the results. When it is run, it
-// connects to a TCP server and awaits instructions.
+// The padawan program for a Deno CMDL. See cmdl.js.
 
 //  $ deno run /path/to/deno_padawan.js <tcp_port>
 
-// The 'tcp_port' argument is the port number of a TCP server running on
-// localhost. See cmdl.js for a description of the message protocol.
-
-// Unlike the Node.js padawan, the Deno padawan will die on any uncaught
-// exceptions or unhandled promise rejections. This is because Deno does not
-// provide global handlers for errors.
+// Dies on uncaught exceptions or Promise rejections.
 
 function evaluate(script, import_specifiers, wait) {
 
@@ -73,11 +66,9 @@ function consume() {
         command.wait
     ).then(function (report) {
         report.id = command.id;
-        return connection.write(
-            new TextEncoder().encode(
-                JSON.stringify(report) + "\n"
-            )
-        );
+        return connection.write(new TextEncoder().encode(
+            JSON.stringify(report) + "\n"
+        ));
     });
 
 // Immediately run any remaining commands in the buffer.
@@ -117,6 +108,7 @@ function read() {
 // Connect to the TCP server on the specified port, and wait for instructions.
 
 Deno.connect({
+    hostname: "127.0.0.1", // match the hostname chosen by cmdl.js
     port: Number.parseInt(Deno.args[0])
 }).then(function (the_connection) {
     connection = the_connection;

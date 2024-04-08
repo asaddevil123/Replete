@@ -1,99 +1,55 @@
-// This REPL evaluates JavaScript source code in an isolated Node.js process.
-// See repl.js and node_cmdl.js for more information.
+// This REPL evaluates JavaScript in a Node.js process.
 
 /*jslint node */
 
-import http from "node:http";
-import make_repl from "./repl.js";
-import make_node_cmdl from "./cmdl/node_cmdl.js";
+import child_process from "node:child_process";
+import url from "node:url";
+import make_cmdl_repl from "./cmdl_repl.js";
+import fileify from "./fileify.js";
+const loader_url = new URL("./node_loader.js", import.meta.url);
+const padawan_url = new URL("./node_padawan.js", import.meta.url);
 
-function make_node_repl(
-    capabilities,
-    which_node,
-    node_args = [],
-    env = {}
-) {
-    const cmdl = make_node_cmdl(
-        function on_stdout(buffer) {
-            return capabilities.out(buffer.toString());
-        },
-        function on_stderr(buffer) {
-            return capabilities.err(buffer.toString());
-        },
-        which_node,
-        node_args,
-        env
-    );
+function spawn_node_padawan(tcp_port, which, args = [], env = {}) {
 
-// The Node.js REPL uses an HTTP server to serve modules to the padawan, which
-// imports them via the dynamic 'import' function. We rely on the loader
-// configured in node_cmdl.js to provide support for HTTP module specifiers.
+// Make sure we have "file:" URLs for the loader and padawan scripts. By
+// default, Node.js is not capable of importing modules over HTTP. We specify a
+// file extension to force Node.js to interpret the source as a module.
 
-    let http_server;
-    let http_server_port;
+    return Promise.all([
+        fileify(loader_url, ".mjs"),
+        fileify(padawan_url, ".mjs")
+    ]).then(function ([
+        loader_file_url,
+        padawan_file_url
+    ]) {
+        return child_process.spawn(
+            which,
+            args.concat(
 
-// We are forcing IPv4 because, on Windows, Node.js seems unwilling to connect
-// to Deno over IPv6.
+// Imbue the padawan process with the ability to import modules over HTTP. The
+// loader specifier must be a fully qualified URL on Windows.
 
-    const http_server_host = "127.0.0.1";
+                "--experimental-loader",
+                loader_file_url.href,
 
-    function on_start(serve) {
-        http_server = http.createServer(serve);
-        return Promise.all([
-            new Promise(function start_http_server(resolve, reject) {
-                http_server.on("error", reject);
-                return http_server.listen(0, http_server_host, function () {
-                    http_server_port = http_server.address().port;
-                    return resolve();
-                });
-            }),
-            cmdl.create()
-        ]);
-    }
+// Suppress the "experimental feature" warnings. We know we are experimenting!
 
-    function on_eval(
-        on_result,
-        produce_script,
-        dynamic_specifiers,
-        import_specifiers,
-        wait
-    ) {
-        return cmdl.eval(
-            produce_script(dynamic_specifiers),
-            import_specifiers,
-            wait
-        ).then(function (report) {
-            return on_result(report.evaluation, report.exception);
-        });
-    }
+                "--no-warnings",
 
-    function on_stop() {
-        return Promise.all([
-            new Promise(function (resolve) {
-                return http_server.close(resolve);
-            }),
-            cmdl.destroy()
-        ]);
-    }
+// The program entry point must be specified as a path.
 
-    function specify(locator) {
-        return (
-            locator.startsWith("file:///")
-            ? (
-                "http://" + http_server_host + ":" + http_server_port
-                + locator.replace("file://", "")
-            )
-            : locator
+                url.fileURLToPath(padawan_file_url),
+                String(tcp_port)
+            ),
+            {env}
         );
-    }
+    });
+}
 
-    return make_repl(
-        capabilities,
-        on_start,
-        on_eval,
-        on_stop,
-        specify
-    );
+function make_node_repl(capabilities, which, args, env) {
+    return make_cmdl_repl(capabilities, function spawn_padawan(tcp_port) {
+        return spawn_node_padawan(tcp_port, which, args, env);
+    });
 }
 
 export default Object.freeze(make_node_repl);

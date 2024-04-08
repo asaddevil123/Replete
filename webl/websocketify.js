@@ -28,10 +28,10 @@ function make_frame(opcode, payload) {
         length_bytes = Buffer.alloc(9);
         length_bytes.writeInt8(127, 0);
 
-// The spec allows for an exabyte of payload, which seems excessive for a
-// browser-based messaging protocol. This implementation produces a well-formed
-// length field for payloads up to 9 petabytes, which ought to be enough for
-// anybody.
+// The specification allows for an exabyte of payload, which seems excessive for
+// a browser-based messaging protocol. This implementation produces a
+// well-formed length field for payloads up to 9 petabytes, which ought to be
+// enough for anybody.
 
         length_bytes.writeUInt32BE(Math.floor(payload.length / (2 ** 32)), 1);
         length_bytes.writeUInt32BE(payload.length % (2 ** 32), 5);

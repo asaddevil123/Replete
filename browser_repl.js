@@ -32,10 +32,6 @@ function make_browser_repl(
 //          A boolean indicating whether to use C3PO as a favicon, rather than
 //          R2D2.
 
-// It returns the interface described in repl.js, with an additional 'recreate'
-// method. This method takes an alternatve 'padawan_type' and returns a Promise
-// that resolves once the padawans have been recreated.
-
 // Configure the WEBL server.
 
     let clients = [];
@@ -179,30 +175,10 @@ function make_browser_repl(
         on_stop,
         specify
     );
-
-    function recreate(the_padawan_type) {
-
-// Destroy all the padawans, and then recreate them as the specified type.
-
-        padawan_type = the_padawan_type;
-        return Promise.all(
-            clients.map(function (client) {
-                return padawans.get(client).destroy();
-            })
-        ).then(function () {
-            return Promise.all(clients.map(function (client) {
-                return create_padawan(client).then(function () {
-                    return capabilities.out("WEBL " + padawan_type + ".\n");
-                });
-            }));
-        });
-    }
-
     return Object.freeze({
         start: repl.start,
         send: repl.send,
-        stop: repl.stop,
-        recreate
+        stop: repl.stop
     });
 }
 

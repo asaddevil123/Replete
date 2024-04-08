@@ -1,4 +1,4 @@
-// The 'fileify' function stores a remote file locally for offline use.
+// Stores a remote file locally, for offline use.
 
 /*jslint deno */
 

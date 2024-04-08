@@ -1,8 +1,9 @@
-// This file is a Node.js "loader" module, allowing a Node.js process to import
-// modules via HTTP.
+// A Node.js "loader" module that imbues a Node.js process with the ability to
+// import modules over HTTP.
 
 // Unlike the --experimental-network-imports flag, this loader permits modules
-// imported over the network to import built-in modules such as "node:fs".
+// imported over the network to import built-in modules such as "node:fs", and
+// never interprets modules as CommonJS.
 
 /*jslint node */
 

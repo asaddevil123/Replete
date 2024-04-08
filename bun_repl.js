@@ -1,95 +1,37 @@
-// This REPL evaluates JavaScript source code in an isolated Bun process. See
-// repl.js and bun_cmdl.js for more information.
+// This REPL evaluates JavaScript in a Bun process.
 
 /*jslint node */
 
-import http from "node:http";
-import make_repl from "./repl.js";
-import make_bun_cmdl from "./cmdl/bun_cmdl.js";
+import child_process from "node:child_process";
+import url from "node:url";
+import make_cmdl_repl from "./cmdl_repl.js";
+import fileify from "./fileify.js";
+const padawan_url = new URL("./node_padawan.js", import.meta.url);
 
-function make_bun_repl(
-    capabilities,
-    which_bun,
-    run_args = [],
-    env = {}
-) {
-    const cmdl = make_bun_cmdl(
-        function on_stdout(buffer) {
-            return capabilities.out(buffer.toString());
-        },
-        function on_stderr(buffer) {
-            return capabilities.err(buffer.toString());
-        },
-        which_bun,
-        run_args,
-        env
-    );
+function spawn_bun_padawan(tcp_port, which, args = [], env = {}) {
 
-// The Bun REPL uses an HTTP server to serve modules to the padawan, which
-// imports them via the 'import' function. It listens on the system's preferred
-// loopback address, with a port number allocated by the system.
+// Make sure we have "file:" URLs for the padawan script, necessary until Bun
+// supports the importing of modules over HTTP.
+// Pending https://github.com/oven-sh/bun/issues/38.
 
-    let http_server;
-    let http_server_port;
-    let http_server_host = "localhost";
-
-    function on_start(serve) {
-        http_server = http.createServer(serve);
-        return Promise.all([
-            new Promise(function start_http_server(resolve, reject) {
-                http_server.on("error", reject);
-                return http_server.listen(0, http_server_host, function () {
-                    http_server_port = http_server.address().port;
-                    return resolve();
-                });
-            }),
-            cmdl.create()
-        ]);
-    }
-
-    function on_eval(
-        on_result,
-        produce_script,
-        dynamic_specifiers,
-        import_specifiers,
-        wait
-    ) {
-        return cmdl.eval(
-            produce_script(dynamic_specifiers),
-            import_specifiers,
-            wait
-        ).then(function (report) {
-            return on_result(report.evaluation, report.exception);
-        });
-    }
-
-    function on_stop() {
-        return Promise.all([
-            new Promise(function (resolve) {
-                return http_server.close(resolve);
-            }),
-            cmdl.destroy()
-        ]);
-    }
-
-    function specify(locator) {
-        return (
-            locator.startsWith("file:///")
-            ? (
-                "http://" + http_server_host + ":" + http_server_port
-                + locator.replace("file://", "")
-            )
-            : locator
+    return fileify(padawan_url).then(function (padawan_file_url) {
+        return child_process.spawn(
+            which,
+            [
+                "run",
+                ...args,
+                url.fileURLToPath(padawan_file_url.href),
+                String(tcp_port)
+            ],
+            {env}
         );
-    }
+    });
+}
 
-    return make_repl(
-        capabilities,
-        on_start,
-        on_eval,
-        on_stop,
-        specify
-    );
+function make_bun_repl(capabilities, which, args, env) {
+    return make_cmdl_repl(capabilities, function spawn_padawan(tcp_port) {
+        return spawn_bun_padawan(tcp_port, which, args, env);
+    });
 }
 
 export default Object.freeze(make_bun_repl);

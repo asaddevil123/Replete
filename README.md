@@ -1,6 +1,6 @@
 # Replete
 
-Replete is an evaluator for JavaScript modules. It enables a highly interactive style of programming called __REPL-driven development__. Replete can evaluate modules in the browser, Node.js, Deno and Bun.
+Replete is an evaluator for JavaScript modules. It enables a highly interactive style of programming called __REPL-driven development__. Replete can evaluate modules in the browser, Node.js, Deno, Bun, and Txiki.
 
 When integrated with your text editor, Replete becomes part of your development environment. Source code is sent directly from your editor to Replete, where it is evaluated. Anything from a mere expression to a whole file may be evaluated at a time. The resulting value (or an exception) is reported back for perusal.
 
@@ -12,205 +12,43 @@ Replete encourages the development of modules in isolation, rather than in the c
 
 Replete is in the Public Domain, and does not come with a warranty. It is at least as dangerous as the source code it is asked to import or evaluate, so be careful.
 
-## Files
-Replete is distributed as a collection of source files. Each module listed below contains its own usage instructions.
-
-- [_replete.js_](./replete.js):
-    Replete as a program. It takes command line arguments for basic configuration.
-
-- [_run.js_](./run.js):
-    Replete as a process. This module exports a function that starts a Replete instance and binds it to the current process's stdin and stdout. Use this module if you wish to configure Replete programmatically.
-
-- [_make.js_](./make.js):
-    Replete as a module. It exports a function that can be used to create multiple Replete instances. Each instance operates REPLs for a variety of environments.
-
-- [_browser_repl.js_](./browser_repl.js),
-  [_node_repl.js_](./node_repl.js),
-  [_deno_repl.js_](./deno_repl.js):
-  [_bun_repl.js_](./bun_repl.js):
-    Modules, each exporting a constructor for a REPL specialized to a particular environment.
-
-- [_repl.js_](./repl.js):
-    A module exporting the constructor for a generic REPL. This is the heart of Replete.
-
-- [_node_resolve.js_](./node_resolve.js):
-    A module exporting a function that resolves an import specifier to a file in a "node_modules" directory.
-
-- [_webl/_](./webl/):
-    A directory containing source code for the WEBL, used by the browser REPL. The WEBL is a standalone tool for remotely evaluating source code in the browser. See webl/README.md.
-
-- [_cmdl/_](./cmdl/):
-    A directory containing the source code for the CMDL, like the WEBL but for command-line runtimes like Node.js. See cmdl/README.md.
-
-- [_package.json_](./package.json):
-    A Node.js package manifest. It declares Replete's dependencies and tells Node to interpret the above files as modules.
-
-The following files support Deno's ability to import the above modules over HTTP.
-
-- [_import_map.json_](./import_map.json):
-    A Deno import map declaring Replete's dependencies.
-
-- [_fileify.js_](./fileify.js):
-    A module exporting a function that downloads files for offline use.
-
-## Configuration
-Replete can be completely customized, or it can be run with no configuration at all.
-
-The function exported by _run.js_ takes a __spec__ object containing the properties listed below, all of which are optional. The _replete.js_ program accepts a subset of these properties as command line arguments.
-
-### spec.browser_port (or `--browser_port`)
-The port number of the browser REPL. If this option is omitted, an unallocated port is chosen automatically. Providing a static port allows any connected tabs to survive a restart of Replete.
-
-### spec.browser_hostname (or `--browser_hostname`)
-The hostname of the browser REPL. When this option is omitted, the browser REPL listens only on localhost. This option can be used to expose the browser REPL to the network, in which case care must be taken to configure `spec.root_locator` and `spec.mime` such that sensitive files are not leaked.
-
-### spec.which_node (or `--which_node`)
-The path to the Node.js binary (`node`). If `node` is in the `PATH` (see `spec.node_env`), this can just be `"node"`.
-
-If omitted, and Replete is being run in Deno or Bun, the Node.js REPL will not be available.
-
-### spec.node_args
-An array of command line arguments provided to the `node` process that runs the Node.js REPL, for example `["--inspect=7227"]`. Run `node --help` for a list of available arguments.
-
-### spec.node_env
-An object containing environment variables made available to the `node` process running the Node.js REPL. If omitted, the environment is inherited from the process running Replete.
-
-### spec.which_deno (or `--which_deno`)
-The path to the Deno binary (`deno`). If `deno` is in the `PATH` (see `spec.deno_env`), this can just be `"deno"`.
-
-If omitted, and Replete is being run in Node.js or Bun, the Deno REPL will not be available.
-
-### spec.deno_args
-An array of command line arguments provided to the `deno` process that runs the Deno REPL, for example `["--allow-all"]`. By default, this array is empty and so the Deno REPL runs with no permissions. Run `deno help run` for a list of available arguments.
-
-### spec.deno_env
-Same as `spec.node_env`, but for the Deno REPL.
-
-### spec.which_bun (or `--which_bun`)
-The path to the Bun binary (`bun`). If `bun` is in the `PATH` (see `spec.bun_env`), this can just be `"bun"`.
-
-If omitted, and Replete is being run in Node.js or Deno, the Bun REPL will not be available.
-
-### spec.bun_args
-An array of command line arguments provided to the `bun` process that runs the Bun REPL, for example `["--smol"]`. Run `bun --help` for a list of available arguments.
-
-### spec.bun_env
-Same as `spec.node_env`, but for the Bun REPL.
-
-### spec.root_locator
-The file URL string of the "root" directory. Files inside this directory may be read and served over the network by Replete. Files outside this directory will not be accessible.
-
-For example, suppose `spec.root_locator` was chosen to be
-
-    file:///home/me/code
-
-and then Replete attempted to read the file locators
-
-    file:///etc/passwd
-    file:///etc/config.json
-    file:///home/me/tool.json
-    file:///home/me/code/project/bundle.json
-
-Only the last attempt (bundle.json) could succeed, and only if `spec.mime` recognized JSON files, which it does not do by default.
-
-It is your responsibility to choose `spec.root_locator`, `spec.mime`, and `spec.browser_hostname` such that sensitive files are not exposed.
-
-### spec.command(_message_)
-Modifies a command _message_ prior to evaluation, for example by transforming its source code or locator. The returned Promise resolves to the modified message, with the "source" property containing JavaScript source code.
-
-    spec.command({
-        source: "1 < 2 < 3",
-        locator: "file:///yummy/cinnamon.coffee",
-        ...
-    });
-    -> {
-        source: "(1 < 2 && 2 < 3);",
-        locator: "file:///yummy/cinnamon.coffee",
-        ...
-    }
-
-It is safe for `spec.command` to mutate _message_.
-
-### spec.locate(_specifier_, _parent_locator_)
-Resolves a module specifier. The _specifier_ parameter is the specifier string of a module to be located. The _parent_locator_ parameter is the locator of the module that contains the _specifier_, and is optional if _specifier_ is fully qualified. The returned Promise resolves to the locator.
-
-A __specifier__ is the string portion of a module's import statement, for example "../my_module.js".
-
-A __locator__ is a URL string containing sufficient information to locate a file. Locators that refer to a file on disk should begin with a regular file URL, but can be suffixed with arbitrary information such as a query string.
-
-    spec.locate("./apple.js", "file:///yummy/orange.js");
-    -> "file:///yummy/apple.js"
-
-    spec.locate("fs", "file:///yummy/orange.js");
-    -> "node:fs"
-
-    spec.locate("yucky", "file:///yummy/orange.js");
-    -> "file:///yummy/node_modules/yucky/yucky.js"
-
-    spec.locate("https://yum.my/noodles.js", "file:///yummy/orange.js");
-    -> "https://yum.my/noodles.js"
-
-### spec.read(_locator_)
-Reads the contents of a file on disk. The _locator_ is a file URL. The returned Promise resolves to a Uint8Array or a string.
-
-    spec.read("file:///yummy/apple.js");
-    -> A string containing JavaScript.
-
-    spec.read("file:///yummy/cinnamon.coffee");
-    -> A string containing JavaScript, transpiled from CoffeeScript.
-
-    spec.read("file:///yummy/bread.png");
-    -> A Uint8Array containing PNG image data.
-
-### spec.watch(_locator_)
-Detects when a file on disk is modified. The returned Promise resolves when the file designated by _locator_ next changes. This does not trigger any visible action. It simply informs Replete that it should drop the file from its cache.
-
-### spec.mime(_locator_)
-Predicts the MIME type of the content produced by `spec.read` when it is called with the file _locator_. It returns a string, or `undefined` if access to the file should be denied.
-
-    spec.mime("file:///yummy/apple.js");          // "text/javascript"
-    spec.mime("file:///yummy/cinnamon.coffee");   // "text/javascript"
-    spec.mime("file:///yummy/spaghetti.jpg");     // "image/jpeg"
-    spec.mime("file:///yummy/secret.key");        // undefined
-
-### spec.out(_string_)
-Called with a string representation of any arguments passed to `console.log` or bytes written to stdout.
-
-### spec.err(_string_)
-Called with a string representation of any exceptions that occur outside of evaluation, or of any bytes written to stderr.
-
 ## Communication
-Replete communicates by sending and receiving command and result messages.
+Replete operates as a heirarchy of communicating processes, as shown in the diagram below.
 
-             +------------------------------------------+
-             |                                          |
-             |               Your program               |
-             |         (such as a text editor)          |
-             |                                          |
-             +----------------+-------------------------+
-                              |        ^
-                              |        |
-             Command messages |        | Result messages
-                              |        |
-                              V        |
-    +----------------------------------+-----------------------+
-    |                                                          |
-    |                           Replete                        |
-    |                                                          |
-    +-------+----------------+--------------+-------------+----+
-            |                |              |             |
-            v                v              v             v
-    +--------------+ +--------------+ +-----------+ +----------+
-    | Browser REPL | | Node.js REPL | | Deno REPL | | Bun REPL |
-    +--------------+ +--------------+ +-----------+ +----------+
+                      +------------------------------------------+
+                      |                                          |
+                      |             Your application             |
+                      |         (such as a text editor)          |
+                      |                                          |
+                      +----------------+-------------------------+
+                                       |        ^
+                                       |        |
+                      Command messages |        | Result messages
+                                       |        |
+                                       V        |
+    +-------------------------------------------+-----------------------------+
+    |                                                                         |
+    |                                    Replete                              |
+    |                                                                         |
+    +-------+----------------+--------------+-------------+------------+------+
+            |                |              |             |            |
+            |                |              |             |            |
+            |                |              |             |            |
+    +-------+------+ +-------+------+ +-----+-----+ +-----+----+ +-----+------+
+    | Browser REPL | | Node.js REPL | | Deno REPL | | Bun REPL | | Txiki REPL |
+    +--------------+ +--------------+ +-----------+ +----------+ +------------+
 
-Messages are JSON-encodable objects.
+The Replete process is responsible for coordinating the REPL processes. It can run in Deno, Node.js, or Bun. When Replete runs in a Deno process, for example, we say that Replete is _hosted_ by Deno.
+
+It is important to understand that the choice of host runtime imposes no constraints on the choice of REPLs running underneath. For example, a Deno-hosted Replete can spawn a Node.js REPL just as easily as a Node.js-hosted Replete can spawn a Deno REPL.
+
+Replete communicates by sending and receiving command and result messages. Messages are JSON-encodable objects.
 
 A __command__ message is an object with the following properties:
 
 - __source__: The source code to be evaluated, as a string. The source may contain import and export statements.
-- __locator__: The locator of the module containing the source. It is required if the source contains any import statements that are not fully qualified.
-- __platform__: Either `"browser"`, `"node"`, `"deno"`, or `"bun"`. This property determines which REPL is used to evaluate the source.
+- __locator__: The locator of the module containing the source. It is required if the source contains any relative imports.
+- __platform__: Either `"browser"`, `"node"`, `"deno"`, `"bun"`, or `"tjs"`. This property determines which REPL evaluates the source.
 - __scope__: The name of the scope, which can be any string. If undefined, the scope `""` is chosen. The scope is created if it does not exist.
 - __id__: If defined, this property is copied verbatim onto the corresponding result messages. It can be used to associate a result with its command. It can be any value.
 
@@ -243,6 +81,231 @@ Here are some examples of commands and the results they might induce.
     COMMAND {platform: "browser", source: "1 + 1", "id": 42}
     RESULT  {evaluation: "2", id: 42}
 
+## Notable files
+Replete is distributed as a collection of source files. The modules listed below contain their own usage instructions.
+
+- [_replete.js_](./replete.js):
+    Replete as a program. It takes command line arguments for basic configuration.
+
+- [_run.js_](./run.js):
+    Replete as a process. This module exports a function that starts a Replete instance and binds it to the current process's stdin and stdout. Use this module if you wish to configure Replete programmatically.
+
+- [_make.js_](./make.js):
+    Replete as a module. It exports a function that can be used to create multiple Replete instances. Each instance coordinates REPLs for a variety of environments.
+
+- [_browser_repl.js_](./browser_repl.js),
+  [_node_repl.js_](./node_repl.js),
+  [_deno_repl.js_](./deno_repl.js),
+  [_bun_repl.js_](./bun_repl.js),
+  [_tjs_repl.js_](./tjs_repl.js):
+    Modules, each exporting a constructor for a REPL specialized to a particular environment.
+
+- [_repl.js_](./repl.js):
+    A module exporting the constructor for a generic REPL. This is the heart of Replete.
+
+- [_node_resolve.js_](./node_resolve.js):
+    A module exporting a function that resolves an import specifier to a file in some "node_modules" directory.
+
+- [_webl/_](./webl/):
+    A directory containing source code for the WEBL, used by the browser REPL. The WEBL is a standalone tool for remotely evaluating source code in the browser. See webl/README.md.
+
+- [_cmdl.js_](./cmdl.js):
+    Like the WEBL but for command-line runtimes such as Node.js.
+
+- [_package.json_](./package.json):
+    A Node.js package manifest. It declares Replete's dependencies and compels Node.js to interpret these files as modules.
+
+- [_import_map.json_](./import_map.json):
+    A Deno import map declaring Replete's dependencies. It supports Deno's ability to run Replete without installation, directly over HTTP.
+
+## Configuration
+The function exported by [_run.js_](./run.js) takes an __options__ object containing any of the properties listed below. The [_replete.js_](./replete.js) program accepts a subset of these options as command line arguments.
+
+### Browser REPL
+The browser REPL evaluates code in a browser tab. All modern browsers are supported. When multiple tabs are connected, the same code is evaluated in all tabs concurrently.
+
+On startup, a message like
+
+    Waiting for WEBL: http://localhost:9325
+
+is output by Replete. To connect, open the URL in a browser. A blank page with the title "WEBL" should appear.
+
+Because the browser REPL has access to the DOM, it can be used to develop user interfaces. For example, evaluating the following code renders an interactive button on the page:
+
+    const button = document.createElement("button");
+    button.textContent = "Click me";
+    button.onclick = function () {
+        alert("You clicked me.");
+    };
+    document.body.append(button);
+
+The browser REPL is also capable of serving static files, so long as a suitable `options.mime` function is provided. For example, using
+
+    function mime(locator) {
+        if (locator.endsWith(".js")) {
+            return "text/javascript";
+        }
+        if (locator.endsWith(".jpg")) {
+            return "image/jpeg";
+        }
+    }
+
+as `options.mime` makes it possible to render a JPEG image on the page, where the image file is resolved relative to the current module:
+
+    const melon_url = import.meta.resolve("./melon.jpg");
+    const img = document.createElement("img");
+    img.src = melon_url;
+    document.body.append(img);
+
+#### options.browser_port, `--browser_port`
+The port number of the browser REPL. If omitted, the browser REPL will be unavailable.
+
+#### options.browser_hostname, `--browser_hostname`
+The hostname of the browser REPL. When this option is omitted, the browser REPL listens only on localhost.
+
+A hostname of `"0.0.0.0"` exposes the browser REPL to the local network, making it possible to evaluate code in mobile browsers.
+
+When exposing the browser REPL to the network, care should be taken to configure `options.mime` such that sensitive files are not accessible.
+
+### Node.js REPL
+[Node.js](https://nodejs.org) is a command-line runtime based on Google's V8 JavaScript engine.
+
+#### options.which_node, `--which_node`
+The path to the Node.js binary, `node`. If Node.js is in the `PATH` (see `options.node_env`), this can simply be `"node"`. Not required if Node.js is hosting Replete.
+
+#### options.node_args
+An array of command line arguments provided to the `node` process running the Node.js REPL, for example `["--inspect=7227"]`. Run `node --help` for a list of available arguments.
+
+#### options.node_env
+An object containing environment variables made available to the Node.js REPL. If omitted, the environment is inherited from the Replete process.
+
+### Deno REPL
+Like Node.js, [Deno](https://deno.com) is a command-line runtime based on V8, but it aims to behave more like a browser.
+
+The Deno REPL restarts whenever an unhandled exception or Promise rejection occurs outside of evaluation.
+
+#### options.which_deno, `--which_deno`
+The path to the Deno binary, `deno`. If Deno is in the `PATH` (see `options.deno_env`), this can simply be `"deno"`. Not required if Deno is hosting Replete.
+
+#### options.deno_args
+An array of command line arguments to follow `deno run`, for example `["--allow-all"]`. By default, this array is empty and so the Deno REPL runs with no permissions. Run `deno help run` for a list of available arguments.
+
+#### options.deno_env
+Same as `options.node_env`, but for the Deno REPL.
+
+### Bun REPL
+[Bun](https://bun.sh) is a command-line runtime based on Apple's [JavaScriptCore](https://docs.webkit.org/Deep%20Dive/JSC/JavaScriptCore.html), also used by Safari. JavaScriptCore implements [Proper Tail Calls](https://webkit.org/blog/6240/ecmascript-6-proper-tail-calls-in-webkit/), making it the [only](https://compat-table.github.io/compat-table/es6/) JavaScript engine to achieve ES6 compliance.
+
+The Bun REPL restarts whenever an unhandled exception or Promise rejection occurs outside of evaluation.
+
+#### options.which_bun, `--which_bun`
+The path to the Bun binary, `bun`. If Bun is in the `PATH` (see `options.bun_env`), this can simply be `"bun"`. Not required if Bun is hosting Replete.
+
+#### options.bun_args
+An array of command line arguments to follow `bun run`, for example `["--smol"]`. Run `bun --help` for a list of available arguments.
+
+#### options.bun_env
+Same as `options.node_env`, but for the Bun REPL.
+
+### Txiki REPL
+[Txiki](https://github.com/saghul/txiki.js) is a command-line runtime based on Fabrice Bellard's [QuickJS](https://bellard.org/quickjs/) engine. QuickJS sacrifices execution speed for reduced size and startup times.
+
+Txiki is unable to host Replete because it does not implement a Node.js compatibility layer.
+
+#### options.which_tjs, `--which_tjs`
+The path to the Txiki binary, `tjs`. If Txiki is in the `PATH` (see `options.tjs_env`), this can simply be `"tjs"`.
+
+#### options.tjs_args
+An array of command line arguments provided to the `tjs` process running the Txiki REPL, for example `["--stack-size", "100"]`.
+
+#### options.tjs_env
+Same as `options.node_env`, but for the Txiki REPL.
+
+### All REPLs
+The remaining configuration options apply to all of the REPLs.
+
+#### options.command(_message_)
+Modifies a command _message_ prior to evaluation, for example by transforming its source code or locator. The returned Promise resolves to the modified message, with the "source" property containing JavaScript source code.
+
+    options.command({
+        source: "1 < 2 < 3",
+        locator: "file:///yummy/cinnamon.coffee",
+        ...
+    });
+    -> {
+        source: "(1 < 2 && 2 < 3);",
+        locator: "file:///yummy/cinnamon.coffee",
+        ...
+    }
+
+It is safe for `options.command` to mutate _message_.
+
+#### options.locate(_specifier_, _parent_locator_)
+Resolves a module specifier. The _specifier_ parameter is the specifier string of a module to be located. The _parent_locator_ parameter is the locator of the module that contains the _specifier_, and is optional if _specifier_ is fully qualified. The returned Promise resolves to the locator.
+
+A __specifier__ is the string portion of a module's import statement, for example "../my_module.js".
+
+A __locator__ is a URL string containing sufficient information to locate a file. Locators that refer to a file on disk should begin with a regular file URL, but can be suffixed with arbitrary information such as a query string.
+
+    options.locate("./apple.js", "file:///yummy/orange.js");
+    -> "file:///yummy/apple.js"
+
+    options.locate("fs", "file:///yummy/orange.js");
+    -> "node:fs"
+
+    options.locate("yucky", "file:///yummy/orange.js");
+    -> "file:///yummy/node_modules/yucky/yucky.js"
+
+    options.locate("https://yum.my/noodles.js", "file:///yummy/orange.js");
+    -> "https://yum.my/noodles.js"
+
+#### options.read(_locator_)
+Reads the contents of a file on disk. The _locator_ is a file URL. The returned Promise resolves to a Uint8Array or a string.
+
+    options.read("file:///yummy/apple.js");
+    -> A string containing JavaScript.
+
+    options.read("file:///yummy/cinnamon.coffee");
+    -> A string containing JavaScript, transpiled from CoffeeScript.
+
+    options.read("file:///yummy/bread.png");
+    -> A Uint8Array containing PNG image data.
+
+#### options.watch(_locator_)
+Detects when a file on disk is modified. The returned Promise resolves when the file designated by _locator_ next changes. This does not trigger any visible action. It simply informs Replete that it should drop the file from its cache.
+
+#### options.mime(_locator_)
+Predicts the MIME type of the content produced by `options.read` when it is called with the file _locator_. It returns a string, or `undefined` if access to the file should be denied.
+
+    options.mime("file:///yummy/apple.js");          // "text/javascript"
+    options.mime("file:///yummy/cinnamon.coffee");   // "text/javascript"
+    options.mime("file:///yummy/spaghetti.jpg");     // "image/jpeg"
+    options.mime("file:///yummy/secret.key");        // undefined
+
+#### options.out(_string_)
+Called with a string representation of any arguments passed to `console.log` or bytes written to stdout.
+
+#### options.err(_string_)
+Called with a string representation of any exceptions that occur outside of evaluation, or of any bytes written to stderr.
+
+#### options.root_locator, `--root_locator`
+The file URL string of the "root" directory. Files inside this directory may be read and served over the network by Replete. Files outside this directory will not be accessible. Defaults to the current working directory of the Replete process if not specified.
+
+For example, suppose `options.root_locator` was chosen to be
+
+    file:///home/me/code
+
+and then Replete attempted to read the file locators
+
+    file:///etc/passwd
+    file:///etc/config.json
+    file:///home/me/tool.json
+    file:///home/me/code/project/bundle.json
+
+Only the last attempt (bundle.json) could succeed, and only if `options.mime` recognized JSON files, which it does not do by default.
+
+It is your responsibility to choose `options.root_locator`, `options.mime`, and `options.browser_hostname` such that sensitive files are not exposed.
+
 ## Links
-- [Feedback and the REPL](https://www.youtube.com/watch?v=A_JrJekP9tQ&t=706s)
+- [The REPL is not a toy](https://www.youtube.com/watch?v=6hMOtPnVr3A)
 - [What makes a REPL?](https://ericnormand.me/podcast/what-makes-a-repl)

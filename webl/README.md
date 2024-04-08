@@ -9,7 +9,7 @@ The WEBL is in the public domain.
 
 # The WEBL server
 
-It is possible to control one or more WEBLs from a Node.js process. WEBLs may even be run in different browsers simultaneously, for example in Firefox and Safari.
+It is possible to control one or more WEBLs from a Node.js process. WEBLs can even be run in different browsers simultaneously, for example in Firefox and Safari.
 
 The below diagram illustrates the communication between the various components. See webl_server.js for usage instructions.
 
@@ -47,7 +47,7 @@ The below diagram illustrates the communication between the various components. 
     |       |           |           |           |      |     +----->  Padawan  |
     |  +----v---+  +----v---+  +----v---+  +----v---+  |           |  (popup)  |
     |  |Padawan |  |Padawan |  |Padawan |  |Padawan |  |           |           |
-    |  |(iframe)|  |(iframe)|  |(worker)|  |(worker)|  |           +-----------+
+    |  | (top)  |  |(iframe)|  |(worker)|  |(worker)|  |           +-----------+
     |  +--------+  +--------+  +--------+  +--------+  |
     |                                                  |
     +--------------------------------------------------+
