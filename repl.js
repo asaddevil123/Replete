@@ -582,6 +582,12 @@ function analyze_top(tree) {
         },
         AwaitExpression() {
             wait = true;
+        },
+        ForOfStatement(node, ignore, c) {
+            if (node.await === true) {
+                wait = true;
+            }
+            c(node.body);
         }
     });
     return {values, wait};
