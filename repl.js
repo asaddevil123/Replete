@@ -288,6 +288,34 @@
 //          return $await;
 //      }());
 
+// +-----------+
+// | Wholeness |
+// +-----------+
+
+// A module should be able to demonstrate its own correctness. To do so, parts
+// of it can be written as an executable program. It is imperative, however,
+// that a module not exhibit side effects when imported by another module. So
+// some mechanism must be used to conditionally enable some of the module's
+// functionality.
+
+// To this end, Replete replaces each occurrence of 'import.meta.main' with
+// 'true' prior to evaluation.
+
+// Thus
+
+//      if (import.meta.main) {
+//          console.log(check_thing());
+//      }
+
+// becomes
+
+//      if (true) {
+//          console.log(check_thing());
+//      }
+
+// Though 'import.meta.main' is not yet standardised, it is nonetheless
+// supported by at least two runtimes.
+
 /*jslint node */
 
 import {parse} from "acorn";
@@ -449,9 +477,13 @@ function analyze_module(tree) {
 
 //          once the specifiers have been resolved.
 
+//      mains
+//          An array of 'import.meta.main' nodes.
+
     let imports = [];
     let exports = [];
     let dynamics = [];
+    let mains = [];
 
 // Walk the whole tree, examining every statement and expression. This is
 // necessary because 'import.meta' can appear basically anywhere.
@@ -515,6 +547,19 @@ function analyze_module(tree) {
                 });
             }
         },
+        MemberExpression(node) {
+            if (
+                node.object.type === "MetaProperty"
+                && node.object.meta.name === "import"
+                && node.object.property.name === "meta"
+                && node.property.name === "main"
+            ) {
+
+// Found import.meta.main.
+
+                mains.push(node);
+            }
+        },
         NewExpression(node) {
             if (
                 node.callee.name === "URL"
@@ -549,7 +594,7 @@ function analyze_module(tree) {
             }
         }
     });
-    return {imports, exports, dynamics};
+    return {imports, exports, dynamics, mains};
 }
 
 function analyze_top(tree) {
@@ -793,6 +838,9 @@ function replize(
             + "\""
             + blanks(source, dynamic.script)
         ]);
+    });
+    module_analysis.mains.forEach(function (main) {
+        return alterations.push([main, "true"]);
     });
     const handlers = {
         VariableDeclaration(variable_node) {

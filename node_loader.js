@@ -3,7 +3,7 @@
 
 // Unlike the --experimental-network-imports flag, this loader permits modules
 // imported over the network to import built-in modules such as "node:fs", and
-// never interprets modules as CommonJS.
+// it ignores CORS.
 
 /*jslint node */
 

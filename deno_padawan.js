@@ -2,8 +2,6 @@
 
 //  $ deno run /path/to/deno_padawan.js <tcp_port>
 
-// Dies on uncaught exceptions or Promise rejections.
-
 function evaluate(script, import_specifiers, wait) {
 
 // The 'evaluate' function evaluates the 'script', after resolving any imported
