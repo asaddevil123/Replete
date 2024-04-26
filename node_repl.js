@@ -4,6 +4,7 @@
 
 import child_process from "node:child_process";
 import url from "node:url";
+import make_cmdl from "./cmdl.js";
 import make_cmdl_repl from "./cmdl_repl.js";
 import fileify from "./fileify.js";
 const loader_url = new URL("./node_loader.js", import.meta.url);
@@ -50,6 +51,33 @@ function make_node_repl(capabilities, which, args, env) {
     return make_cmdl_repl(capabilities, function spawn_padawan(tcp_port) {
         return spawn_node_padawan(tcp_port, which, args, env);
     });
+}
+
+if (import.meta.main) {
+    const cmdl = make_cmdl(
+        function spawn_padawan(tcp_port) {
+            return spawn_node_padawan(tcp_port, process.argv[0]);
+        },
+        function on_stdout(chunk) {
+            return process.stdout.write(chunk);
+        },
+        function on_stderr(chunk) {
+            return process.stderr.write(chunk);
+        }
+    );
+    cmdl.create().then(function () {
+        return cmdl.eval(
+            // `
+            //     (function isStrictMode() {
+            //         return this === undefined;
+            //     }());
+            // `,
+            "$imports[0].default.tmpdir();",
+            ["node:os"]
+        ).then(
+            console.log
+        );
+    }).then(cmdl.destroy);
 }
 
 export default Object.freeze(make_node_repl);

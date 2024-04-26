@@ -313,14 +313,13 @@
 //          console.log(check_thing());
 //      }
 
-// Though 'import.meta.main' is not yet standardised, it is nonetheless
-// supported by at least two runtimes.
+// Though 'import.meta.main' is not yet standardized, it is supported by at
+// least two runtimes.
 
-/*jslint node */
+/*jslint browser */
 
 import {parse} from "acorn";
 import {simple, recursive} from "acorn-walk";
-import crypto from "node:crypto";
 
 const rx_relative_path = /^\.\.?\//;
 
@@ -359,6 +358,20 @@ function alter_string(string, alterations) {
     ).join(
         ""
     );
+}
+
+if (import.meta.main) {
+    (function test_alter_string() {
+        const altered = alter_string("..234.6.8.", [
+            [{start: 6, end: 7}, ""],
+            [{start: 6, end: 6}, "six"],
+            [{start: 8, end: 9}, "eight"],
+            [{start: 2, end: 5}, "twothreefour"]
+        ]);
+        if (altered !== "..twothreefour.six.eight.") {
+            throw new Error("FAIL");
+        }
+    }());
 }
 
 function parse_module(source) {
@@ -597,6 +610,63 @@ function analyze_module(tree) {
     return {imports, exports, dynamics, mains};
 }
 
+function run_analyzer(analyzer, source) {
+    return [
+        analyzer(parse_module(source)),
+        function range({start, end}) {
+            return source.slice(start, end);
+        }
+    ];
+}
+
+if (import.meta.main) {
+    (function test_analyze_module() {
+        const [analysis, range] = run_analyzer(analyze_module, `
+            import a, {b as B} from "./a.js";
+            import c, * as d from "./d.js";
+            const h = import("./h.js");
+            const i = import.meta.resolve("./i.js");
+            const j = new URL("./j.js", import.meta.url);
+            const k = import.meta.main;
+            export {h as H};
+            export default i;
+            export * from "./k.js";
+            export {m} from "./m.js";
+        `);
+        const [import_a, import_c] = analysis.imports;
+        const [dynamic_h, dynamic_i, dynamic_j] = analysis.dynamics;
+        const [export_h, export_i] = analysis.exports;
+        const [main_k] = analysis.mains;
+        if (
+            analysis.imports.length !== 2
+            || import_a.default !== "a"
+            || import_a.names.b !== "B"
+            || !range(import_a.node).startsWith("import")
+            || !range(import_a.node).endsWith(";")
+            || import_c.default !== "c"
+            || import_c.names !== "d"
+            || analysis.dynamics.length !== 3
+            || dynamic_h.value !== "./h.js"
+            || range(dynamic_h.module) !== "\"./h.js\""
+            || range(dynamic_h.script) !== "\"./h.js\""
+            || analysis.mains.length !== 1
+            || range(main_k) !== "import.meta.main"
+            || dynamic_i.value !== "./i.js"
+            || range(dynamic_i.module) !== "import.meta.resolve(\"./i.js\")"
+            || range(dynamic_i.script) !== "import.meta.resolve(\"./i.js\")"
+            || dynamic_j.value !== "./j.js"
+            || range(dynamic_j.module) !== "\"./j.js\""
+            || range(dynamic_j.script) !== "\"./j.js\", import.meta.url"
+            || analysis.exports.length !== 4
+            || !range(export_h).startsWith("export")
+            || !range(export_h).endsWith(";")
+            || range(export_i.declaration) !== "i"
+        ) {
+            throw new Error("FAIL");
+        }
+    }());
+}
+
 function analyze_top(tree) {
 
 // The 'analyze_top' function statically analyzes the top-level scope of a
@@ -611,6 +681,7 @@ function analyze_top(tree) {
 //      wait
 //          Whether the module contains any top-level await expressions. Just
 //          one of these is sufficient to prevent immediate evaluation.
+
 
     let values = [];
     let wait = false;
@@ -636,6 +707,50 @@ function analyze_top(tree) {
         }
     });
     return {values, wait};
+}
+
+if (import.meta.main) {
+    (function test_analyze_top_immediate() {
+        const [analysis, range] = run_analyzer(analyze_top, `
+            if (a) {
+                b(async c => await d);
+            } else {
+                e;
+            }
+            f;
+        `);
+        if (
+            analysis.wait !== false
+            || analysis.values.length !== 3
+            || range(analysis.values[0]) !== "b(async c => await d);"
+            || range(analysis.values[1]) !== "e;"
+            || range(analysis.values[2]) !== "f;"
+        ) {
+            throw new Error("FAIL");
+        }
+    }());
+    (function test_analyze_top_eventual() {
+        const [analysis, range] = run_analyzer(analyze_top, `
+            if (a) {
+                b(await c);
+            } else {
+                d;
+            }
+            function e() {
+                f();
+            }
+            g;
+        `);
+        if (
+            analysis.wait !== true
+            || analysis.values.length !== 3
+            || range(analysis.values[0]) !== "b(await c);"
+            || range(analysis.values[1]) !== "d;"
+            || range(analysis.values[2]) !== "g;"
+        ) {
+            throw new Error("FAIL");
+        }
+    }());
 }
 
 function all_specifiers(module_analysis) {
@@ -1025,11 +1140,155 @@ function replize(
     );
 }
 
+function run_replize(source, scope, dynamic_specifiers = []) {
+    const tree = parse_module(source);
+    return replize(
+        source,
+        tree,
+        analyze_module(tree),
+        analyze_top(tree),
+        dynamic_specifiers,
+        scope
+    );
+}
+
+
+if (import.meta.main) {
+    const indirect_eval = window.eval;
+    (function test_replize_continuity() {
+        const script = `
+            const x = "x";
+                let y = "y";
+            z();
+            function z() {
+                return "z";
+            }
+            let uninitialized;
+            const special_string_replacement_pattern = "$'";
+              const {
+                a,
+                b
+            } = {
+                a: "a",
+                b: "b"
+            };
+            let [c, d] = [a, b];
+            (function () {
+                const c = "not c";
+            }());
+            const e = import.meta.resolve("!e");
+        `;
+        const gather = `
+            (function () {
+                return [x, y, z(), a, b, c, d, e];
+            }());
+        `;
+        const scope = String(Math.random());
+        const results = [script, script, ""].map(function (script) {
+            return indirect_eval(
+                run_replize(script + "\n" + gather, scope, ["e"])
+            );
+        });
+        if (results.some(function (array) {
+            return array.join(" ") !== "x y z a b a b e";
+        })) {
+            throw new Error("FAIL");
+        }
+    }());
+    (function test_replize_delayed_assignment() {
+        const scope = String(Math.random());
+        indirect_eval(run_replize(
+            `
+                let x = false;
+                setTimeout(function () {
+                    x = true;
+                });
+            `,
+            scope
+        ));
+        return setTimeout(function () {
+            if (!indirect_eval(run_replize("x;", scope))) {
+                throw new Error("FAIL");
+            }
+        });
+    }());
+    (function test_replize_strict_mode() {
+        const scope = String(Math.random());
+        let ok = false;
+        try {
+            indirect_eval(run_replize(
+                `
+                    (function () {
+                        x = true;
+                    }());
+                `,
+                scope
+            ));
+        } catch (ignore) {
+            ok = true;
+        }
+        if (!ok) {
+            throw new Error("FAIL");
+        }
+    }());
+    (function test_replize_top_level_await() {
+        const scope = String(Math.random());
+        const timer = setTimeout(function () {
+            throw new Error("FAIL timeout");
+        });
+        indirect_eval(run_replize(
+            `
+                if (true) {
+                    let a;
+                    a = await 42;
+                    a + 1;
+                }
+            `,
+            scope
+        )).then(function (value) {
+            clearTimeout(timer);
+            if (value !== 43) {
+                throw new Error("FAIL");
+            }
+        });
+    }());
+    (function test_replize_main() {
+        const scope = String(Math.random());
+        const value = indirect_eval(run_replize(
+            `
+                if (import.meta.main) {
+                    "OK"
+                }
+            `,
+            scope
+        ));
+        if (value !== "OK") {
+            throw new Error("FAIL");
+        }
+    }());
+}
+
+const utf8_encoder = new TextEncoder();
+
 function digest(...args) {
 
-// The 'digest' function hashes its arguments, returning a string.
+// The 'digest' function produces a non-cryptographic hash of its arguments. The
+// returned Promise resolves to the hex-encoded hash string.
 
-    return crypto.createHash("sha1").update(args.join()).digest("hex");
+    const text = args.join(",");
+    return crypto.subtle.digest(
+        "SHA-1",
+        utf8_encoder.encode(text)
+    ).then(function (array_buffer) {
+        return Array.from(
+            new Uint32Array(array_buffer),
+            function hexify(uint32) {
+                return uint32.toString(16).padStart(5, "0");
+            }
+        ).join(
+            ""
+        );
+    });
 }
 
 const utf8_decoder = new TextDecoder("utf-8", {fatal: true});
@@ -1253,9 +1512,10 @@ function make_repl(capabilities, on_start, on_eval, on_stop, specify) {
 
 // Versions are local to REPL instances, and so an unguessable value is used to
 // qualify them. This has the added benefit of making it very unlikely that
-// regular locators will be confused with versioned ones.
+// regular locators will be confused with versioned ones. A random string is
+// generated as the instance is started.
 
-    const unguessable = digest(Math.random()).slice(0, 4);
+    let unguessable;
 
     function versionize(locator) {
 
@@ -1471,7 +1731,10 @@ function make_repl(capabilities, on_start, on_eval, on_stop, specify) {
 
     return Object.freeze({
         start() {
-            return on_start(serve);
+            return digest(Math.random()).then(function (hash) {
+                unguessable = hash.slice(0, 4);
+                return on_start(serve);
+            });
         },
         send,
         stop: on_stop

@@ -4,6 +4,8 @@
 /*jslint node */
 
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import url from "node:url";
 
 const node_builtin_modules = [
@@ -172,6 +174,172 @@ function node_resolve(specifier, parent_locator) {
         }).catch(function (ignore) {
             return file_url.href;
         });
+    });
+}
+
+if (import.meta.main) {
+    const files = {
+        "a/node_modules/main/package.json": JSON.stringify({
+            main: "./main.js"
+        }),
+        "a/node_modules/mod/package.json": JSON.stringify({
+            main: "./main.js",
+            module: "./module.js"
+        }),
+        "a/node_modules/@scoped/pkg/package.json": JSON.stringify({
+            exports: {
+                ".": "./scoped.js",
+                "./exported.js": "./dist/exported.js"
+            }
+        }),
+        "a/node_modules/exports/package.json": JSON.stringify({
+            main: "./main.js",
+            module: "./module.js",
+            exports: {
+                ".": {
+                    types: "./dist/types.d.ts",
+                    import: {
+                        node: "./dist/import_node.mjs",
+                        default: "./dist/import_default.js"
+                    },
+                    require: "./dist/require.js"
+                },
+                "./default.js": {
+                    require: "./dist/default.cjs",
+                    default: "./dist/default.mjs"
+                },
+                "./extensionless": "./dist/extensioned.js",
+                "./wildcard/*": "./dist/wildcard/*",
+                "./wildcard_ext/*.js": "./dist/wildcard_ext/*.js",
+                "./asset.svg": "./dist/asset.svg"
+            }
+        }),
+        "a/b/c/node_modules/nested/package.json": JSON.stringify({
+            exports: "./nested.js"
+        })
+    };
+    const tests = [
+        {
+            specifier: "exports",
+            parent: "a/b.js",
+            resolved: "a/node_modules/exports/dist/import_default.js"
+        },
+        {
+            specifier: "exports/default.js",
+            parent: "a/b.js",
+            resolved: "a/node_modules/exports/dist/default.mjs"
+        },
+        {
+            specifier: "exports/extensionless",
+            parent: "a/b.js",
+            resolved: "a/node_modules/exports/dist/extensioned.js"
+        },
+        {
+            specifier: "exports/asset.svg",
+            parent: "a/b.js",
+            resolved: "a/node_modules/exports/dist/asset.svg"
+        },
+        {
+            specifier: "exports/wildcard/img.svg",
+            parent: "a/b.js",
+            resolved: "a/node_modules/exports/dist/wildcard/img.svg"
+        },
+        {
+            specifier: "exports/wildcard_ext/hello.js",
+            parent: "a/b.js",
+            resolved: "a/node_modules/exports/dist/wildcard_ext/hello.js"
+        },
+        {
+            specifier: "exports/wildcard_ext/img.wrongext",
+            parent: "a/b.js"
+        },
+        {
+            specifier: "exports/internal.js",
+            parent: "a/b.js"
+        },
+        {
+            specifier: "main",
+            parent: "a/b/c/d.js",
+            resolved: "a/node_modules/main/main.js"
+        },
+        {
+            specifier: "main/internal.js",
+            parent: "a/b/c/d.js",
+            resolved: "a/node_modules/main/internal.js"
+        },
+        {
+            specifier: "mod",
+            parent: "a/b.js",
+            resolved: "a/node_modules/mod/module.js"
+        },
+        {
+            specifier: "@scoped/pkg",
+            parent: "a/b.js",
+            resolved: "a/node_modules/@scoped/pkg/scoped.js"
+        },
+        {
+            specifier: "@scoped/pkg/exported.js",
+            parent: "a/b.js",
+            resolved: "a/node_modules/@scoped/pkg/dist/exported.js"
+        },
+        {
+            specifier: "nested",
+            parent: "a/b.js"
+        },
+        {
+            specifier: "nested",
+            parent: "a/b/c/d.js",
+            resolved: "a/b/c/node_modules/nested/nested.js"
+        },
+        {
+            specifier: "not_found",
+            parent: "a/b.js"
+        }
+    ];
+    fs.promises.mkdtemp(
+        path.join(os.tmpdir(), "node_resolve_")
+    ).then(function (tmp) {
+        return Promise.all(
+            Object.keys(files).map(path.dirname).map(function (directory) {
+                return fs.promises.mkdir(
+                    path.join(tmp, directory),
+                    {recursive: true}
+                );
+            })
+        ).then(function () {
+            return Promise.all(Object.entries(
+                files
+            ).map(function ([file, content]) {
+                return fs.promises.writeFile(path.join(tmp, file), content);
+            }));
+        }).then(function () {
+            return Promise.all(
+                tests.map(function ({specifier, parent, resolved}) {
+                    return node_resolve(
+                        specifier,
+                        url.pathToFileURL(path.join(tmp, parent)).href
+                    ).then(function (actual) {
+                        const expect = url.pathToFileURL(
+                            path.join(tmp, resolved)
+                        ).href;
+                        if (actual !== expect) {
+                            return Promise.reject({
+                                specifier,
+                                parent,
+                                resolved,
+                                actual
+                            });
+                        }
+                    }).catch(function (error) {
+                        if (resolved !== undefined) {
+                            return Promise.reject(error);
+                        }
+                    });
+                })
+            );
+        });
+    }).then(function () {
+        console.log("All tests passed. You are awesome!");
     });
 }
 

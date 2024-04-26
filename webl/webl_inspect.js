@@ -166,4 +166,22 @@ function inspect(value, maximum_depth = 10) {
     return string;
 }
 
+if (import.meta.main) {
+    window.console.log(inspect());
+    window.console.log(inspect(null));
+    window.console.log(inspect(123));
+    window.console.log(inspect(Infinity));
+    window.console.log(inspect(NaN));
+    window.console.log(inspect([1, {"2": [3, 4]}]));
+    window.console.log(inspect([1, {"2": [3, 4]}], 1));
+    window.console.log(inspect(new Uint8Array([0, 255])));
+    if (typeof document === "object") {
+        window.console.log(inspect(document.body));
+    }
+    window.console.log(inspect(Math.random));
+    const circular = Object.create(null);
+    circular.self = circular;
+    window.console.log(inspect(circular));
+}
+
 export default Object.freeze(inspect);

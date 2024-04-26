@@ -8,7 +8,7 @@
 // runtime used to run Replete does not affect which REPLs are available,
 // because each REPL is run as a separate process.
 
-// To start Replete in Node.js v18.6.0+, run
+// To start Replete in Node.js v19.0.0+, run
 
 //      $ node /path/to/replete.js [options]
 

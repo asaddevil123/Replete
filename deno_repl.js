@@ -6,6 +6,7 @@
 /*jslint node */
 
 import child_process from "node:child_process";
+import make_cmdl from "./cmdl.js";
 import make_cmdl_repl from "./cmdl_repl.js";
 const padawan_url = new URL("./deno_padawan.js", import.meta.url);
 
@@ -60,6 +61,32 @@ function make_deno_repl(capabilities, which, args, env) {
     return make_cmdl_repl(capabilities, function spawn_padawan(tcp_port) {
         return spawn_deno_padawan(tcp_port, which, args, env);
     });
+}
+
+if (import.meta.main) {
+    const cmdl = make_cmdl(
+        function spawn_padawan(tcp_port) {
+            return spawn_deno_padawan(
+                tcp_port,
+                "deno",
+                ["--allow-net=deno.land"]
+            );
+        },
+        function on_stdout(chunk) {
+            return process.stdout.write(chunk);
+        },
+        function on_stderr(chunk) {
+            return process.stderr.write(chunk);
+        }
+    );
+    cmdl.create().then(function () {
+        return cmdl.eval(
+            `$imports[0].basename("/a/b/c.d")`,
+            ["https://deno.land/std@0.117.0/path/mod.ts"]
+        ).then(
+            console.log
+        );
+    }).then(cmdl.destroy);
 }
 
 export default Object.freeze(make_deno_repl);

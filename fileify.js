@@ -1,6 +1,6 @@
 // Stores a remote file locally, for offline use.
 
-/*jslint deno */
+/*jslint node */
 
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -104,6 +104,13 @@ function fileify(http_url, replace_extension) {
     }).then(function () {
         return url.pathToFileURL(file);
     });
+}
+
+if (import.meta.main) {
+    fileify(
+        new URL("https://deno.land/x/replete/node_loader.js"),
+        ".mjs"
+    ).then(console.log);
 }
 
 export default Object.freeze(fileify);

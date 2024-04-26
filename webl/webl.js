@@ -539,4 +539,29 @@ function make_webl() {
     return Object.freeze({padawan, destroy});
 }
 
+if (import.meta.main) {
+    const webl = make_webl();
+    const padawan = webl.padawan({
+        on_log: window.console.log,
+        on_exception: window.console.error,
+        name: "Foo #0",
+        type: "iframe",
+        iframe_style_object: {width: "200px", height: "200px"}
+    });
+    padawan.create().then(
+        function on_created() {
+            return padawan.eval(`
+                const btn = document.createElement("button");
+                btn.innerText = "Foo";
+                document.body.appendChild(btn);
+            `, []);
+        }
+    ).then(
+        function on_evaluated(report) {
+            window.console.log(report.evaluation);
+            return setTimeout(webl.destroy, 10000);
+        }
+    );
+}
+
 export default Object.freeze(make_webl);
