@@ -222,7 +222,8 @@ function make_iframe_padawan(
     name,
     secret,
     on_message,
-    style_object = {display: "none"},
+    iframe,
+    style_object,
 
 // Omitting the "allow-same-origin" permission places the iframe in a different
 // origin from that of its master. This means that communication is only
@@ -231,7 +232,13 @@ function make_iframe_padawan(
     sandbox = "allow-scripts"
 ) {
     window.addEventListener("message", on_message);
-    const iframe = document.createElement("iframe");
+    if (iframe === undefined) {
+        iframe = document.createElement("iframe");
+        document.body.appendChild(iframe);
+        if (style_object === undefined) {
+            style_object = {display: "none"};
+        }
+    }
     Object.assign(iframe.style, style_object);
     if (sandbox !== false) {
         iframe.sandbox = sandbox;
@@ -241,7 +248,6 @@ function make_iframe_padawan(
         + fill(padawan_create_script_template, {name, secret})
         + "\n</script>"
     );
-    document.body.appendChild(iframe);
     return Object.freeze({
         send(message) {
             iframe.contentWindow.postMessage(message, "*");
@@ -335,6 +341,10 @@ function make_webl() {
 //              The string passed as the third argument to window.open, for
 //              popups.
 
+//          "iframe_element"
+//              The iframe element to use. If undefined, one is created and
+//              appended to the body when the padawan is created.
+
 //          "iframe_style_object"
 //              An object containing styles to use for iframes.
 
@@ -405,7 +415,14 @@ function make_webl() {
             return;
         }
         if (message.name === "ready") {
-            return ready_callbacks[message.padawan]();
+
+// It is possible for an iframe padawan to reinitialize itself when moved around
+// the DOM, resulting in superfluous "ready" messages.
+
+            const callback = ready_callbacks[message.padawan];
+            if (callback !== undefined) {
+                return callback();
+            }
         }
         if (message.name === "evaluation") {
             return eval_callbacks[message.eval_id](message.value);
@@ -425,6 +442,7 @@ function make_webl() {
             name,
             type,
             popup_window_features,
+            iframe_element,
             iframe_style_object,
             iframe_sandbox
         } = spec;
@@ -463,6 +481,7 @@ function make_webl() {
                     name,
                     secret,
                     on_message_facet,
+                    iframe_element,
                     iframe_style_object,
                     iframe_sandbox
                 );
