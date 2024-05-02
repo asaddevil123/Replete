@@ -933,17 +933,19 @@ function replize(
         return alterations.push([node, blanks(source, node)]);
     });
     module_analysis.exports.forEach(function (node) {
-        return alterations.push(
-            node.type === "ExportDefaultDeclaration"
-            ? [
-                {
-                    start: node.start,
-                    end: node.declaration.start
-                },
-                "$default = "
-            ]
-            : [node, blanks(source, node)]
-        );
+        if (node.type !== "ExportNamedDeclaration") {
+            return alterations.push(
+                node.type === "ExportDefaultDeclaration"
+                ? [
+                    {
+                        start: node.start,
+                        end: node.declaration.start
+                    },
+                    "$default = "
+                ]
+                : [node, blanks(source, node)]
+            );
+        }
     });
     module_analysis.dynamics.forEach(function (dynamic, dynamic_nr) {
         return alterations.push([
@@ -1066,6 +1068,20 @@ function replize(
 // by $fruit is actually $scope.apple, which returns "green".
 
         },
+        ExportNamedDeclaration(node) {
+
+// Variable, class, or function declarations may be prefixed by an 'export'
+// keyword. Handle the declaration as per usual after removing the 'export'.
+
+            alterations.push([
+                {start: node.start, end: node.declaration.start},
+                ""
+            ]);
+            const declaration_handler = handlers[node.declaration.type];
+            if (declaration_handler !== undefined) {
+                declaration_handler(node.declaration);
+            }
+        },
         ClassDeclaration(node) {
 
 // Class declarations are similar to function declarations, but they are not
@@ -1096,14 +1112,12 @@ function replize(
 // Examine each top-level statement in the script, passing it to the relevant
 // handler for transformation.
 
-    tree.body.forEach(
-        function (node) {
-            const handler = handlers[node.type];
-            if (handler !== undefined) {
-                return handler(node);
-            }
+    tree.body.forEach(function (node) {
+        const handler = handlers[node.type];
+        if (handler !== undefined) {
+            return handler(node);
         }
-    );
+    });
 
 // If a top-level await is present, the module must be evaluated within an async
 // function. The function returns its trailing value.
@@ -1152,7 +1166,6 @@ function run_replize(source, scope, dynamic_specifiers = []) {
     );
 }
 
-
 if (import.meta.main) {
     const indirect_eval = window.eval;
     (function test_replize_continuity() {
@@ -1177,10 +1190,14 @@ if (import.meta.main) {
                 const c = "not c";
             }());
             const e = import.meta.resolve("!e");
+            export function f() {
+                return "f";
+            }
+            export const g = "g";
         `;
         const gather = `
             (function () {
-                return [x, y, z(), a, b, c, d, e];
+                return [x, y, z(), a, b, c, d, e, f(), g];
             }());
         `;
         const scope = String(Math.random());
@@ -1190,7 +1207,7 @@ if (import.meta.main) {
             );
         });
         if (results.some(function (array) {
-            return array.join(" ") !== "x y z a b a b e";
+            return array.join(" ") !== "x y z a b a b e f g";
         })) {
             throw new Error("FAIL");
         }
