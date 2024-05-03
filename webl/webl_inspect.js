@@ -35,11 +35,7 @@ function inspect(value, maximum_depth = 10) {
         string += fragment;
     }
 
-// We keep track of values that have already been (or are being) printed,
-// otherwise we would be at risk of entering an infinite loop.
-
-    let seen = new WeakMap();
-    (function print(value, depth = 0) {
+    (function print(value, depth = 0, weakmaps = []) {
         if (typeof value === "function") {
             return write("[Function: " + (value.name || "(anonymous)") + "]");
         }
@@ -55,11 +51,19 @@ function inspect(value, maximum_depth = 10) {
         if (value.constructor === Date) {
             return write("[Date: " + value.toJSON() + "]");
         }
-        if (seen.has(value)) {
+        if (weakmaps.some(function (seen) {
+            return seen.has(value);
+        })) {
             return write("[Circular]");
         }
         try {
+
+// We keep track of object-like values that have already been (or are being)
+// printed, otherwise we would be at risk of entering an infinite loop.
+
+            let seen = new WeakMap();
             seen.set(value, true);
+            weakmaps = weakmaps.concat(seen);
         } catch (ignore) {
 
 // The value must be some kind of freaky primitive, like Symbol or BigInt.
@@ -80,7 +84,7 @@ function inspect(value, maximum_depth = 10) {
             if (key !== undefined) {
                 write(key + ": ");
             }
-            print(value, depth + 1);
+            print(value, depth + 1, weakmaps);
             if (!last) {
                 return write(
                     compact
@@ -136,7 +140,7 @@ function inspect(value, maximum_depth = 10) {
 // Some kinds of objects are better represented as an array.
 
             if (value[Symbol.iterator] !== undefined) {
-                return print(Array.from(value), depth);
+                return print(Array.from(value), depth, weakmaps);
             }
         }
         write("{");
@@ -179,6 +183,8 @@ if (import.meta.main) {
         window.console.log(inspect(document.body));
     }
     window.console.log(inspect(Math.random));
+    const not_circular = {};
+    window.console.log(inspect([not_circular, not_circular]));
     const circular = Object.create(null);
     circular.self = circular;
     window.console.log(inspect(circular));
