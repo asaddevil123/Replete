@@ -1,5 +1,5 @@
 // This is the generic REPL. It provides functionality common to all of
-// Replete's REPLs, which have identical interfaces. This is the general shape
+// Replete's REPLs, which have a common interface. This is the general shape
 // of a REPL:
 
 //                      +----------------+
@@ -1324,11 +1324,9 @@ function make_repl(capabilities, on_start, on_eval, on_stop, specify) {
 //      capabilities
 //          An object containing the Replete capability functions.
 
-//      on_start(serve)
-//          A function that does any necessary setup work. It is passed a
-//          handler function, which can be called with the 'req' and 'res'
-//          objects whenever an HTTP request is received. The returned Promise
-//          resolves once it is safe to call 'on_eval'.
+//      on_start()
+//          A function that does any necessary setup work, such as starting an
+//          HTTP server.
 
 //      on_eval(
 //          on_result,
@@ -1644,20 +1642,18 @@ function make_repl(capabilities, on_start, on_eval, on_stop, specify) {
         });
     }
 
-    function serve(req, res) {
+    function serve(url, headers) {
 
-// The 'serve' function responds to HTTP requests made by the padawans. The
-// response is generally source code for a JavaScript module, but it can be any
-// kind of file supported by the 'mime' capability.
+// The 'serve' function responds to HTTP requests made by the padawans. It takes
+// the URL string and headers object of the request. The returned Promise
+// resolves to an object like {body, headers} representing the response.
 
-        function fail(reason) {
-            capabilities.err(reason.stack + "\n");
-            res.statusCode = 500;
-            return res.end();
-        }
+// The response body is generally source code for a JavaScript module, but it
+// can be any kind of file supported by the 'mime' capability.
 
-        try {
-            let locator = "file://" + req.url;
+        return Promise.resolve().then(function () {
+            url = new URL(url);
+            let locator = "file://" + url.pathname + url.search;
 
 // Any versioning information in the URL has served its purpose by defeating the
 // padawan's module cache. It is discarded before continuing.
@@ -1668,9 +1664,13 @@ function make_repl(capabilities, on_start, on_eval, on_stop, specify) {
             }
             const content_type = capabilities.mime(locator);
             if (content_type === undefined) {
-                return fail(new Error("No MIME type for " + locator));
+                return Promise.reject(new Error(
+                    "No MIME type specified for "
+                    + locator
+                    + ". Use the \"mime\" option."
+                ));
             }
-            return (
+            return Promise.resolve(
 
 // If the file is a JavaScript module, prepare its source for delivery.
 // Otherwise serve the file verbatim.
@@ -1679,24 +1679,22 @@ function make_repl(capabilities, on_start, on_eval, on_stop, specify) {
                 ? module(locator)
                 : capabilities.read(locator)
             ).then(function (string_or_buffer) {
-                res.setHeader("content-type", content_type);
+                let response_headers = {"content-type": content_type};
 
 // It is possible that the file was requested from a Web Worker whose origin
 // is "null". To satisfy CORS, allow such origins explicitly.
 
-                if (typeof req.headers.origin === "string") {
-                    res.setHeader(
-                        "access-control-allow-origin",
-                        req.headers.origin
-                    );
+                if (typeof headers?.origin === "string") {
+                    response_headers[
+                        "access-control-allow-origin"
+                    ] = headers.origin;
                 }
-                return res.end(string_or_buffer);
-            }).catch(
-                fail
-            );
-        } catch (exception) {
-            fail(exception);
-        }
+                return {
+                    body: string_or_buffer,
+                    headers: response_headers
+                };
+            });
+        });
     }
 
     function send(message, on_result) {
@@ -1725,6 +1723,9 @@ function make_repl(capabilities, on_start, on_eval, on_stop, specify) {
                         );
                     })
                 ).then(function (resolved_specifiers) {
+
+// Evaluate the source code.
+
                     return on_eval(
                         on_result,
                         function produce_script(dynamic_specifiers) {
@@ -1750,10 +1751,11 @@ function make_repl(capabilities, on_start, on_eval, on_stop, specify) {
         start() {
             return digest(Math.random()).then(function (hash) {
                 unguessable = hash.slice(0, 4);
-                return on_start(serve);
+                return on_start();
             });
         },
         send,
+        serve,
         stop: on_stop
     });
 }

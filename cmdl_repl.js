@@ -1,6 +1,8 @@
 // A generic REPL for command-line runtimes. It uses a CMDL and serves modules
 // from a dedicated HTTP server.
 
+/*jslint node */
+
 import http from "node:http";
 import make_cmdl from "./cmdl.js";
 import make_repl from "./repl.js";
@@ -15,6 +17,7 @@ function make_cmdl_repl(capabilities, spawn_padawan) {
             return capabilities.err(buffer.toString());
         }
     );
+    let repl;
 
 // An HTTP server serves modules to the padawan, which imports them via the
 // dynamic 'import' function. As such, the padawan is expected to support HTTP
@@ -28,8 +31,22 @@ function make_cmdl_repl(capabilities, spawn_padawan) {
 
     const http_server_host = "127.0.0.1";
 
-    function on_start(serve) {
-        http_server = http.createServer(serve);
+    function on_start() {
+        http_server = http.createServer(function (req, res) {
+            return repl.serve(
+                new URL(req.url, "http://" + req.host).href,
+                req.headers
+            ).then(function ({body, headers}) {
+                Object.entries(headers).forEach(function ([key, value]) {
+                    res.setHeader(key, value);
+                });
+                res.end(body);
+            }).catch(function fail(reason) {
+                capabilities.err(reason.stack + "\n");
+                res.statusCode = 500;
+                return res.end();
+            });
+        });
         return Promise.all([
             new Promise(function start_http_server(resolve, reject) {
                 http_server.on("error", reject);
@@ -78,13 +95,14 @@ function make_cmdl_repl(capabilities, spawn_padawan) {
         );
     }
 
-    return make_repl(
+    repl = make_repl(
         capabilities,
         on_start,
         on_eval,
         on_stop,
         specify
     );
+    return repl;
 }
 
 export default Object.freeze(make_cmdl_repl);

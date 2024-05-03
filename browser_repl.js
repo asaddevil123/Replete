@@ -84,15 +84,30 @@ function make_browser_repl(
     }
 
     let webl_server;
+    let repl;
 
-    function on_start(serve) {
+    function on_start() {
         webl_server = make_webl_server(
             function on_exception(error) {
                 return capabilities.err(error.stack + "\n");
             },
             on_client_found,
             on_client_lost,
-            serve,
+            function on_request(req, res) {
+                return repl.serve(
+                    new URL(req.url, "http://" + req.host).href,
+                    req.headers
+                ).then(function ({body, headers}) {
+                    Object.entries(headers).forEach(function ([key, value]) {
+                        res.setHeader(key, value);
+                    });
+                    res.end(body);
+                }).catch(function fail(reason) {
+                    capabilities.err(reason.stack + "\n");
+                    res.statusCode = 500;
+                    return res.end();
+                });
+            },
             humanoid
         );
         return webl_server.start(port, hostname).then(function (actual_port) {
@@ -168,7 +183,7 @@ function make_browser_repl(
         );
     }
 
-    const repl = make_repl(
+    repl = make_repl(
         capabilities,
         on_start,
         on_eval,
