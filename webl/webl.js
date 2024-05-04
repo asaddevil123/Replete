@@ -53,74 +53,67 @@ function fill(template, substitutions) {
 // The creation script is the first thing evaluated by a padawan. It adds
 // listeners for messages and other events.
 
-// Note that we strenously avoid defining any variables other than $webl. This
-// is because the entire local scope is made available to any script executed by
-// 'eval'.
-
 const padawan_create_script_template = `
 
 // The '$webl' object contains a couple of functions used internally by the
 // padawan to communicate with its master.
 
-    self.$webl = Object.freeze(function (global) {
-        return {
-            send(message) {
+// Which global object handles postage depends on the type of the padawan. If
+// the padawan is a popup, we grab a reference to the window.opener property
+// before it is deleted.
+
+    const global = (
+        self.opener      // popup
+        ?? self.parent   // iframe or top
+        ?? self          // worker
+    );
+    self.$webl = Object.freeze({
+        send(message) {
 
 // Authenticate the message.
 
-                message.secret = <secret>;
+            message.secret = <secret>;
 
 // For iframe padawans, we specify the wildcard "*" as the target origin,
 // because the iframe may not share an origin with its master.
 
-                return (
-                    global.parent !== undefined
-                    ? global.postMessage(message, "*")
+            return (
+                global.parent !== undefined
+                ? global.postMessage(message, "*")
 
 // The 'postMessage' function of a window has a different signature to that of a
 // worker, which does not accept a targetOrigin parameter.
 
-                    : global.postMessage(message)
-                );
-            },
-            inspect: ${webl_inspect.toString()},
-            reason: ${reason.toString()}
-        };
-    }(
-
-// Postage is handled by a different global object, depending on the type of the
-// padawan. If the padawan is a popup, we grab a reference to the window.opener
-// property before it is deleted.
-
-        self.opener      // popup
-        ?? self.parent   // iframe or top
-        ?? self          // worker
-    ));
+                : global.postMessage(message)
+            );
+        },
+        inspect: ${webl_inspect.toString()},
+        reason: ${reason.toString()}
+    });
 
 // The 'console.log' function is commonly used in the browser as the equivalent
 // of printing to stdout. Here we apply a wiretap, sending its arguments to the
 // master.
 
-    (function (original) {
-        self.console.log = function (...args) {
-            $webl.send({
-                name: "log",
-                padawan: "<name>",
-                values: args.map(function (value) {
-                    return (
+    const original = console.log;
+    self.console.log = function (...args) {
+        $webl.send({
+            name: "log",
+            padawan: "<name>",
+            values: args.map(function (value) {
+                return (
 
 // If the value happens to be a string, it is passed through unchanged. This
-// improves the readability of strings that span multiple lines.
+// improves the readability of strings spanning multiple lines.
 
-                        typeof value === "string"
-                        ? value
-                        : $webl.inspect(value)
-                    );
-                })
-            });
-            return original(...args);
-        };
-    }(console.log));
+                    typeof value === "string"
+                    ? value
+                    : $webl.inspect(value)
+                );
+            })
+        });
+        return original(...args);
+    };
 
 // Inform the master of any uncaught exceptions.
 
@@ -136,10 +129,11 @@ const padawan_create_script_template = `
     };
 
 // Padawans receive only one kind of message, containing the fulfillment of the
-// 'padawan_eval_script_template'.
+// 'padawan_eval_script_template'. We use an indirect eval to avoid exposing our
+// local variables.
 
     self.onmessage = function (event) {
-        return window.eval(event.data);
+        return self.eval(event.data);
     };
 
 // Finally, inform the master that the padawan is ready for instruction.
@@ -166,7 +160,7 @@ const padawan_eval_script_template = `
         <import_expressions>
     ]).then(function ($imports) {
         self.$imports = $imports;
-        const value = window.eval(<payload_script_json>);
+        const value = self.eval(<payload_script_json>);
         return (
             <wait>
             ? Promise.resolve(value).then($webl.inspect)
@@ -244,7 +238,8 @@ function make_iframe_padawan(
         iframe.sandbox = sandbox;
     }
     iframe.srcdoc = (
-        "<script>\n"
+        "<!DOCTYPE html>"
+        + "\n<script>\n"
         + fill(padawan_create_script_template, {name, secret})
         + "\n</script>"
     );
