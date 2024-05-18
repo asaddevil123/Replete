@@ -318,12 +318,12 @@ function make_webl() {
 //          "on_log"
 //              A function that is called with the stringified arguments of any
 //              calls to console.log. The arguments are stringified by the
-//              'inspect' function.
+//              'inspect' function. Optional.
 
 //          "on_exception"
 //              A function that is called with a string representation of any
 //              exceptions or Promise rejections encountered outside of
-//              evaluation.
+//              evaluation. Optional.
 
 //          "name"
 //              The name of the padawan, unique to this WEBL.
@@ -442,9 +442,15 @@ function make_webl() {
             iframe_sandbox
         } = spec;
         log_callbacks[name] = function (strings) {
-            return on_log(...strings);
+            if (on_log !== undefined) {
+                on_log(...strings);
+            }
         };
-        exception_callbacks[name] = on_exception;
+        exception_callbacks[name] = function (string) {
+            if (on_exception !== undefined) {
+                on_exception(string);
+            }
+        };
 
         function create() {
             if (padawans[name] !== undefined) {
