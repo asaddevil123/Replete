@@ -1,14 +1,15 @@
 # Replete
 
-Replete is an evaluator for JavaScript modules. It enables a highly interactive style of programming called __REPL-driven development__. Replete can evaluate modules in the browser, Node.js, Deno, Bun, and Txiki.
+Replete brings interactive programming to JavaScript. It is an evaluator for JavaScript modules, supporting a variety of environments including the browser, Node.js, Deno, Bun, and Txiki.
 
-When integrated with your text editor, Replete becomes part of your development environment. Source code is sent directly from your editor to Replete, where it is evaluated. Anything from a mere expression to a whole file may be evaluated at a time. The resulting value (or an exception) is reported back for perusal.
+Once integrated with your text editor, Replete becomes part of your development environment. Source code is sent directly from your editor to Replete, where it is evaluated. Anything from a mere expression to a whole file may be evaluated at a time. The resulting value (or an exception) is reported back for perusal.
 
 ![](https://james.diacono.com.au/talks/feedback_and_the_repl/replete.gif)
 
 Replete encourages the development of modules in isolation, rather than in the context of a running application. Modules written in this way tend to be more independent and hence more reusable, more testable and hence more robust.
 
-[Browse the text editor plugins](https://github.com/jamesdiacono/Replete/issues/5).
+- [Try it online](https://repletejs.org/play/)
+- [Browse the text editor plugins](https://github.com/jamesdiacono/Replete/issues/5)
 
 Replete is in the Public Domain, and does not come with a warranty. It is at least as dangerous as the source code it is asked to import or evaluate, so be careful.
 
