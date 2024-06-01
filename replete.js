@@ -87,7 +87,7 @@ let options = {
 // Parse the command line arguments into an options object.
 
 process.argv.slice(2).forEach(function (argument) {
-    const [ignore, name, value] = argument.match(/^--(\w+)=(.*)$/);
+    const [_, name, value] = argument.match(/^--(\w+)=(.*)$/);
     options[name] = (
         name.endsWith("_port")
         ? parseInt(value)

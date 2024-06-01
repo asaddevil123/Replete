@@ -32,7 +32,7 @@ function user_cache_dir() {
 function replete_cache_dir() {
     try {
         return path.join(user_cache_dir(), "replete");
-    } catch (ignore) {
+    } catch (_) {
         return os.tmpdir();
     }
 }
@@ -67,7 +67,7 @@ function fileify(http_url, replace_extension) {
 // Check if a cached version of the file is available.
 
     let file = versioned_path(http_url.href);
-    return fs.promises.stat(file).catch(function (ignore) {
+    return fs.promises.stat(file).catch(function () {
 
 // The file is not cached, so download it to the filesystem.
 

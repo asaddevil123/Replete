@@ -30,7 +30,7 @@ function make_webl_server(
     on_exception,
     on_client_found,
     on_client_lost,
-    on_unhandled_request = function not_found(ignore, res) {
+    on_unhandled_request = function not_found(_, res) {
         res.statusCode = 404;
         return res.end();
     },

@@ -33,7 +33,7 @@ function reason(exception) {
             );
         }
         return "Exception: " + String(exception);
-    } catch (ignore) {
+    } catch (_) {
         return "Exception";
     }
 }
@@ -551,7 +551,7 @@ function make_webl() {
         Object.keys(padawans).forEach(function (the_name) {
             try {
                 padawans[the_name].destroy();
-            } catch (ignore) {}
+            } catch (_) {}
             delete padawans[the_name];
         });
     }

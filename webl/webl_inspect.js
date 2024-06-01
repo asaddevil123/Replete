@@ -64,7 +64,7 @@ function inspect(value, maximum_depth = 10) {
             let seen = new WeakMap();
             seen.set(value, true);
             weakmaps = weakmaps.concat(seen);
-        } catch (ignore) {
+        } catch (_) {
 
 // The value must be some kind of freaky primitive, like Symbol or BigInt.
 
@@ -162,7 +162,7 @@ function inspect(value, maximum_depth = 10) {
                     keys.length === 1 && is_primitive(value[key]),
                     key_nr === keys.length - 1
                 );
-            } catch (ignore) {}
+            } catch (_) {}
         });
         outdent();
         return write("}");

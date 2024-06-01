@@ -692,14 +692,14 @@ function analyze_top(tree) {
         Function() {
             return;
         },
-        ExpressionStatement(node, ignore, c) {
+        ExpressionStatement(node, _, c) {
             values.push(node);
             c(node.expression);
         },
         AwaitExpression() {
             wait = true;
         },
-        ForOfStatement(node, ignore, c) {
+        ForOfStatement(node, _, c) {
             if (node.await === true) {
                 wait = true;
             }
@@ -1241,7 +1241,7 @@ if (import.meta.main) {
                 `,
                 scope
             ));
-        } catch (ignore) {
+        } catch (_) {
             ok = true;
         }
         if (!ok) {

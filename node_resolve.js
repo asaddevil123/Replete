@@ -106,7 +106,7 @@ function find_manifest(package_name, from_url) {
     );
     return fs.promises.readFile(manifest_url, "utf8").then(function (json) {
         return [JSON.parse(json), manifest_url];
-    }).catch(function (ignore) {
+    }).catch(function () {
 
 // The manifest could not be read. Try searching the parent directory, unless we
 // are at the root of the filesystem.
@@ -171,7 +171,7 @@ function node_resolve(specifier, parent_locator) {
             file_url
         ).then(function (real_path) {
             return url.pathToFileURL(real_path).href;
-        }).catch(function (ignore) {
+        }).catch(function () {
             return file_url.href;
         });
     });

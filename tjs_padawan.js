@@ -13,7 +13,7 @@ function reason(exception) {
             );
         }
         return "Exception: " + webl_inspect(exception);
-    } catch (ignore) {
+    } catch (_) {
         return "Exception";
     }
 }
