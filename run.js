@@ -24,12 +24,12 @@
 //      run({
 //          browser_port: 3000,
 //          deno_args: ["--allow-all"],
-//          mime(locator) {
+//          headers(locator) {
 //              if (locator.endsWith(".js")) {
-//                  return "text/javascript";
+//                  return {"Content-Type": "text/javascript"};
 //              }
 //              if (locator.endsWith(".css")) {
-//                  return "text/css";
+//                  return {"Content-Type": "text/css"};
 //              }
 //          }
 //      });

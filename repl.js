@@ -1480,6 +1480,21 @@ function make_repl(capabilities, on_start, on_eval, on_stop, specify) {
         return hashing[locator];
     }
 
+    function is_module(locator) {
+        if (locator.startsWith("file:///")) {
+            const headers = capabilities.headers(locator);
+            if (headers !== undefined) {
+                return Object.entries(headers).some(function ([name, value]) {
+                    return (
+                        name.toLowerCase() === "content-type"
+                        && value.toLowerCase().startsWith("text/javascript")
+                    );
+                });
+            }
+        }
+        return false;
+    }
+
     function hash(locator) {
 
 // The 'hash' function produces a hash string for a module. It produces
@@ -1494,10 +1509,7 @@ function make_repl(capabilities, on_start, on_eval, on_stop, specify) {
 // tree, which would be excruciatingly slow were it not for the in-memory cache
 // employed by the above functions.
 
-        if (
-            !locator.startsWith("file:///")
-            || capabilities.mime(locator) !== "text/javascript"
-        ) {
+        if (!is_module(locator)) {
             return Promise.resolve();
         }
         return Promise.all([
@@ -1537,10 +1549,7 @@ function make_repl(capabilities, on_start, on_eval, on_stop, specify) {
 // The 'versionize' function produces a versioned form of the 'locator', where
 // necessary.
 
-        if (
-            !locator.startsWith("file:///")
-            || capabilities.mime(locator) !== "text/javascript"
-        ) {
+        if (!is_module(locator)) {
 
 // Only modules require versioning, because only they are subject to the
 // runtime's module cache.
@@ -1648,8 +1657,8 @@ function make_repl(capabilities, on_start, on_eval, on_stop, specify) {
 // the URL string and headers object of the request. The returned Promise
 // resolves to an object like {body, headers} representing the response.
 
-// The response body is generally source code for a JavaScript module, but it
-// can be any kind of file supported by the 'mime' capability.
+// The response body is often source code for a JavaScript module, but it can be
+// any kind of file supported by the 'headers' capability.
 
         return Promise.resolve().then(function () {
             url = new URL(url);
@@ -1662,12 +1671,12 @@ function make_repl(capabilities, on_start, on_eval, on_stop, specify) {
             if (matches && matches[2] === unguessable) {
                 locator = "file://" + matches[3];
             }
-            const content_type = capabilities.mime(locator);
-            if (content_type === undefined) {
+            let response_headers = capabilities.headers(locator);
+            if (response_headers === undefined) {
                 return Promise.reject(new Error(
-                    "No MIME type specified for "
+                    "No headers specified for "
                     + locator
-                    + ". Use the \"mime\" option."
+                    + ". Use the \"headers\" option."
                 ));
             }
             return Promise.resolve(
@@ -1675,18 +1684,17 @@ function make_repl(capabilities, on_start, on_eval, on_stop, specify) {
 // If the file is a JavaScript module, prepare its source for delivery.
 // Otherwise serve the file verbatim.
 
-                content_type === "text/javascript"
+                is_module(locator)
                 ? module(locator)
                 : capabilities.read(locator)
             ).then(function (string_or_buffer) {
-                let response_headers = {"content-type": content_type};
 
 // It is possible that the file was requested from a Web Worker whose origin
 // is "null". To satisfy CORS, allow such origins explicitly.
 
                 if (typeof headers?.origin === "string") {
                     response_headers[
-                        "access-control-allow-origin"
+                        "Access-Control-Allow-Origin"
                     ] = headers.origin;
                 }
                 return {

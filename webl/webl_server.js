@@ -180,7 +180,7 @@ function make_webl_server(
             return fileify(url).then(
                 fs.promises.readFile
             ).then(function (buffer) {
-                res.setHeader("content-type", mime_type);
+                res.setHeader("Content-Type", mime_type);
                 return res.end(buffer);
             }).catch(function (error) {
                 on_exception(error);
@@ -212,7 +212,11 @@ function make_webl_server(
             return serve_file(webl_relay_js_url, "text/javascript");
         }
         if (req.url === "/") {
-            res.setHeader("content-type", "text/html");
+
+// Although this HTML source is ASCII-only, its charset will be used as a
+// fallback for other files, such as CSS, so we had better specify UTF-8.
+
+            res.setHeader("Content-Type", "text/html; charset=utf-8");
             return res.end(html);
         }
         return on_unhandled_request(req, res);

@@ -140,18 +140,18 @@ Because the browser REPL has access to the DOM, it can be used to develop user i
     };
     document.body.append(button);
 
-The browser REPL is also capable of serving static files, so long as a suitable `options.mime` function is provided. For example, using
+The browser REPL is also capable of serving static files, so long as a suitable `options.headers` function is provided. For example, passing
 
-    function mime(locator) {
+    function headers(locator) {
         if (locator.endsWith(".js")) {
-            return "text/javascript";
+            return {"Content-Type": "text/javascript"};
         }
         if (locator.endsWith(".jpg")) {
-            return "image/jpeg";
+            return {"Content-Type": "image/jpeg"};
         }
     }
 
-as `options.mime` makes it possible to render a JPEG image on the page, where the image file is resolved relative to the current module:
+as `options.headers` makes it possible to render a JPEG image on the page, where the image file is resolved relative to the current module:
 
     const melon_url = import.meta.resolve("./melon.jpg");
     const img = document.createElement("img");
@@ -166,7 +166,7 @@ The hostname of the browser REPL. When this option is omitted, the browser REPL 
 
 A hostname of `"0.0.0.0"` exposes the browser REPL to the local network, making it possible to evaluate code in mobile browsers.
 
-When exposing the browser REPL to the network, care should be taken to configure `options.mime` such that sensitive files are not accessible.
+When exposing the browser REPL to the network, care should be taken to configure `options.headers` such that sensitive files are not accessible.
 
 ### Node.js REPL
 [Node.js](https://nodejs.org) is a command-line runtime based on Google's V8 JavaScript engine.
@@ -275,13 +275,25 @@ Reads the contents of a file on disk. The _locator_ is a file URL. The returned 
 #### options.watch(_locator_)
 Detects when a file on disk is modified. The returned Promise resolves when the file designated by _locator_ next changes. This does not trigger any visible action. It simply informs Replete that it should drop the file from its cache.
 
-#### options.mime(_locator_)
-Predicts the MIME type of the content produced by `options.read` when it is called with the file _locator_. It returns a string, or `undefined` if access to the file should be denied.
+#### options.headers(_locator_), `--content_type`
+Determines the response headers for a file served over HTTP. If an object is returned, the file is served with those headers. If `undefined` is returned, the file is not served. Note that, unlike the other options, `options.headers` does not return a Promise.
 
-    options.mime("file:///yummy/apple.js");          // "text/javascript"
-    options.mime("file:///yummy/cinnamon.coffee");   // "text/javascript"
-    options.mime("file:///yummy/spaghetti.jpg");     // "image/jpeg"
-    options.mime("file:///yummy/secret.key");        // undefined
+    options.headers("file:///yummy/apple.js");
+    -> {"Content-Type": "text/javascript"}
+    options.headers("file:///yummy/cinnamon.coffee");
+    -> {"Content-Type": "text/javascript"}
+    options.headers("file:///yummy/spaghetti.jpg");
+    -> {"Content-Type": "image/jpeg"}
+    options.headers("file:///yummy/secret.key");
+    -> undefined
+
+If this option is absent, only files with a ".js" extension will be served. The headers (in particular Content-Type) should be consistent with the value produced by calling `options.read` with _locator_, not necessarily the file as it exists on disk.
+
+A simplified form of this option may be provided on the command line like `--content_type=<ext>:<type>`. Each appearance of `--content_type` maps a file extension to its Content-Type. For example, the following would configure Replete to serve .js, .css, and .html files with appropriate Content-Type headers.
+
+    --content_type=js:text/javascript
+    --content_type=css:text/css
+    --content_type="html:text/html; charset=utf-8"
 
 #### options.out(_string_)
 Called with a string representation of any arguments passed to `console.log` or bytes written to stdout.
@@ -303,9 +315,9 @@ and then Replete attempted to read the file locators
     file:///home/me/tool.json
     file:///home/me/code/project/bundle.json
 
-Only the last attempt (bundle.json) could succeed, and only if `options.mime` recognized JSON files, which it does not do by default.
+Only the last attempt (bundle.json) could succeed, and only if `options.headers` recognized JSON files, which it does not do by default.
 
-It is your responsibility to choose `options.root_locator`, `options.mime`, and `options.browser_hostname` such that sensitive files are not exposed.
+It is your responsibility to choose `options.root_locator`, `options.headers`, and `options.browser_hostname` such that sensitive files are not exposed.
 
 ## Links
 - [The REPL is not a toy](https://www.youtube.com/watch?v=6hMOtPnVr3A)

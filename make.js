@@ -56,6 +56,9 @@ function make_replete({
 // compatibility.
 
     source = function default_source(message) {
+
+// Deprecated. Use 'command' instead.
+
         return Promise.resolve(message.source);
     },
     command = function default_command(message) {
@@ -69,11 +72,21 @@ function make_replete({
     },
     mime = function default_mime(locator) {
 
-// By default, only JavaScript files are served to the REPLs. If you wish to
-// serve other types of files, such as images, just return a suitable mime type.
+// Deprecated. Use 'headers' instead.
 
         if (locator.endsWith(".js") || locator.endsWith(".mjs")) {
             return "text/javascript";
+        }
+    },
+    headers = function default_headers(locator) {
+
+// By default, only JavaScript files are served. If you wish to serve other
+// types of files, such as images, just check the file extension return
+// suitable headers.
+
+        const type = mime(locator);
+        if (type !== undefined) {
+            return {"Content-Type": type};
         }
     },
     locate = function default_locate(specifier, parent_locator) {
@@ -140,7 +153,7 @@ function make_replete({
         locate,
         read: safe_read,
         watch,
-        mime,
+        headers,
         out,
         err
     });

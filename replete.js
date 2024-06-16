@@ -30,6 +30,9 @@
 
 // The following options are supported:
 
+//      --content_type=<ext>:<type>
+//          See README.md.
+
 //      --browser_port=<port>
 //          See README.md.
 
@@ -73,6 +76,7 @@
 import process from "node:process";
 import run from "./run.js";
 
+let content_type_object = Object.create(null);
 let options = {
     node_args: [],
 
@@ -88,11 +92,16 @@ let options = {
 
 process.argv.slice(2).forEach(function (argument) {
     const [_, name, value] = argument.match(/^--(\w+)=(.*)$/);
-    options[name] = (
-        name.endsWith("_port")
-        ? parseInt(value)
-        : value
-    );
+    if (name === "content_type") {
+        const [file_extension, type] = value.split(":");
+        content_type_object[file_extension] = type;
+    } else {
+        options[name] = (
+            name.endsWith("_port")
+            ? parseInt(value)
+            : value
+        );
+    }
 });
 if (Number.isSafeInteger(options.node_debugger_port)) {
     options.node_args.push("--inspect=" + options.node_debugger_port);
@@ -105,6 +114,15 @@ if (Number.isSafeInteger(options.deno_debugger_port)) {
 if (Number.isSafeInteger(options.bun_debugger_port)) {
     options.bun_args.push("--inspect=" + options.bun_debugger_port);
     delete options.bun_debugger_port;
+}
+if (Object.keys(content_type_object).length > 0) {
+    options.headers = function (locator) {
+        const file_extension = locator.split(".").pop().toLowerCase();
+        const content_type = content_type_object[file_extension];
+        if (content_type !== undefined) {
+            return {"Content-Type": content_type};
+        }
+    };
 }
 
 run(options);
