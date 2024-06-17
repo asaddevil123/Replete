@@ -360,18 +360,16 @@ function alter_string(string, alterations) {
     );
 }
 
-if (import.meta.main) {
-    (function test_alter_string() {
-        const altered = alter_string("..234.6.8.", [
-            [{start: 6, end: 7}, ""],
-            [{start: 6, end: 6}, "six"],
-            [{start: 8, end: 9}, "eight"],
-            [{start: 2, end: 5}, "twothreefour"]
-        ]);
-        if (altered !== "..twothreefour.six.eight.") {
-            throw new Error("FAIL");
-        }
-    }());
+function test_alter_string() {
+    const altered = alter_string("..234.6.8.", [
+        [{start: 6, end: 7}, ""],
+        [{start: 6, end: 6}, "six"],
+        [{start: 8, end: 9}, "eight"],
+        [{start: 2, end: 5}, "twothreefour"]
+    ]);
+    if (altered !== "..twothreefour.six.eight.") {
+        throw new Error("FAIL");
+    }
 }
 
 function parse_module(source) {
@@ -619,52 +617,50 @@ function run_analyzer(analyzer, source) {
     ];
 }
 
-if (import.meta.main) {
-    (function test_analyze_module() {
-        const [analysis, range] = run_analyzer(analyze_module, `
-            import a, {b as B} from "./a.js";
-            import c, * as d from "./d.js";
-            const h = import("./h.js");
-            const i = import.meta.resolve("./i.js");
-            const j = new URL("./j.js", import.meta.url);
-            const k = import.meta.main;
-            export {h as H};
-            export default i;
-            export * from "./k.js";
-            export {m} from "./m.js";
-        `);
-        const [import_a, import_c] = analysis.imports;
-        const [dynamic_h, dynamic_i, dynamic_j] = analysis.dynamics;
-        const [export_h, export_i] = analysis.exports;
-        const [main_k] = analysis.mains;
-        if (
-            analysis.imports.length !== 2
-            || import_a.default !== "a"
-            || import_a.names.b !== "B"
-            || !range(import_a.node).startsWith("import")
-            || !range(import_a.node).endsWith(";")
-            || import_c.default !== "c"
-            || import_c.names !== "d"
-            || analysis.dynamics.length !== 3
-            || dynamic_h.value !== "./h.js"
-            || range(dynamic_h.module) !== "\"./h.js\""
-            || range(dynamic_h.script) !== "\"./h.js\""
-            || analysis.mains.length !== 1
-            || range(main_k) !== "import.meta.main"
-            || dynamic_i.value !== "./i.js"
-            || range(dynamic_i.module) !== "import.meta.resolve(\"./i.js\")"
-            || range(dynamic_i.script) !== "import.meta.resolve(\"./i.js\")"
-            || dynamic_j.value !== "./j.js"
-            || range(dynamic_j.module) !== "\"./j.js\""
-            || range(dynamic_j.script) !== "\"./j.js\", import.meta.url"
-            || analysis.exports.length !== 4
-            || !range(export_h).startsWith("export")
-            || !range(export_h).endsWith(";")
-            || range(export_i.declaration) !== "i"
-        ) {
-            throw new Error("FAIL");
-        }
-    }());
+function test_analyze_module() {
+    const [analysis, range] = run_analyzer(analyze_module, `
+        import a, {b as B} from "./a.js";
+        import c, * as d from "./d.js";
+        const h = import("./h.js");
+        const i = import.meta.resolve("./i.js");
+        const j = new URL("./j.js", import.meta.url);
+        const k = import.meta.main;
+        export {h as H};
+        export default i;
+        export * from "./k.js";
+        export {m} from "./m.js";
+    `);
+    const [import_a, import_c] = analysis.imports;
+    const [dynamic_h, dynamic_i, dynamic_j] = analysis.dynamics;
+    const [export_h, export_i] = analysis.exports;
+    const [main_k] = analysis.mains;
+    if (
+        analysis.imports.length !== 2
+        || import_a.default !== "a"
+        || import_a.names.b !== "B"
+        || !range(import_a.node).startsWith("import")
+        || !range(import_a.node).endsWith(";")
+        || import_c.default !== "c"
+        || import_c.names !== "d"
+        || analysis.dynamics.length !== 3
+        || dynamic_h.value !== "./h.js"
+        || range(dynamic_h.module) !== "\"./h.js\""
+        || range(dynamic_h.script) !== "\"./h.js\""
+        || analysis.mains.length !== 1
+        || range(main_k) !== "import.meta.main"
+        || dynamic_i.value !== "./i.js"
+        || range(dynamic_i.module) !== "import.meta.resolve(\"./i.js\")"
+        || range(dynamic_i.script) !== "import.meta.resolve(\"./i.js\")"
+        || dynamic_j.value !== "./j.js"
+        || range(dynamic_j.module) !== "\"./j.js\""
+        || range(dynamic_j.script) !== "\"./j.js\", import.meta.url"
+        || analysis.exports.length !== 4
+        || !range(export_h).startsWith("export")
+        || !range(export_h).endsWith(";")
+        || range(export_i.declaration) !== "i"
+    ) {
+        throw new Error("FAIL");
+    }
 }
 
 function analyze_top(tree) {
@@ -709,48 +705,47 @@ function analyze_top(tree) {
     return {values, wait};
 }
 
-if (import.meta.main) {
-    (function test_analyze_top_immediate() {
-        const [analysis, range] = run_analyzer(analyze_top, `
-            if (a) {
-                b(async c => await d);
-            } else {
-                e;
-            }
-            f;
-        `);
-        if (
-            analysis.wait !== false
-            || analysis.values.length !== 3
-            || range(analysis.values[0]) !== "b(async c => await d);"
-            || range(analysis.values[1]) !== "e;"
-            || range(analysis.values[2]) !== "f;"
-        ) {
-            throw new Error("FAIL");
+function test_analyze_top_immediate() {
+    const [analysis, range] = run_analyzer(analyze_top, `
+        if (a) {
+            b(async c => await d);
+        } else {
+            e;
         }
-    }());
-    (function test_analyze_top_eventual() {
-        const [analysis, range] = run_analyzer(analyze_top, `
-            if (a) {
-                b(await c);
-            } else {
-                d;
-            }
-            function e() {
-                f();
-            }
-            g;
-        `);
-        if (
-            analysis.wait !== true
-            || analysis.values.length !== 3
-            || range(analysis.values[0]) !== "b(await c);"
-            || range(analysis.values[1]) !== "d;"
-            || range(analysis.values[2]) !== "g;"
-        ) {
-            throw new Error("FAIL");
+        f;
+    `);
+    if (
+        analysis.wait !== false
+        || analysis.values.length !== 3
+        || range(analysis.values[0]) !== "b(async c => await d);"
+        || range(analysis.values[1]) !== "e;"
+        || range(analysis.values[2]) !== "f;"
+    ) {
+        throw new Error("FAIL");
+    }
+}
+
+function test_analyze_top_eventual() {
+    const [analysis, range] = run_analyzer(analyze_top, `
+        if (a) {
+            b(await c);
+        } else {
+            d;
         }
-    }());
+        function e() {
+            f();
+        }
+        g;
+    `);
+    if (
+        analysis.wait !== true
+        || analysis.values.length !== 3
+        || range(analysis.values[0]) !== "b(await c);"
+        || range(analysis.values[1]) !== "d;"
+        || range(analysis.values[2]) !== "g;"
+    ) {
+        throw new Error("FAIL");
+    }
 }
 
 function all_specifiers(module_analysis) {
@@ -924,28 +919,14 @@ function replize(
     let alterations = [];
     let variables = [];
 
-// Transform the imports, exports and dynamic specifiers. Import statments are
-// removed, as are non-default export statements. Default export statements
-// are turned into assignments to $default. Dynamic specifiers are injected as
-// string literals.
+// Transform imports:
+//  - Import statements are removed.
+//  - The argument passed to import() is replaced with a string literal.
+//  - Each call to import.meta.resolve is replaced with a string literal.
+//  - All references to import.meta.main are replaced with 'true'.
 
     module_analysis.imports.forEach(function ({node}) {
         return alterations.push([node, blanks(source, node)]);
-    });
-    module_analysis.exports.forEach(function (node) {
-        if (node.type !== "ExportNamedDeclaration") {
-            return alterations.push(
-                node.type === "ExportDefaultDeclaration"
-                ? [
-                    {
-                        start: node.start,
-                        end: node.declaration.start
-                    },
-                    "$default = "
-                ]
-                : [node, blanks(source, node)]
-            );
-        }
     });
     module_analysis.dynamics.forEach(function (dynamic, dynamic_nr) {
         return alterations.push([
@@ -1068,18 +1049,40 @@ function replize(
 // by $fruit is actually $scope.apple, which returns "green".
 
         },
+
+// Transform exports:
+//  - The default export is turned into an assignment to $default.
+//  - Exported declarations have their 'export' keyword stripped.
+//  - All other exports are removed.
+
+        ExportAllDeclaration(node) {
+            alterations.push([node, blanks(source, node)]);
+        },
+        ExportDefaultDeclaration(node) {
+            alterations.push([
+                {
+                    start: node.start,
+                    end: node.declaration.start
+                },
+                "$default = "
+            ]);
+        },
         ExportNamedDeclaration(node) {
+            if (node.declaration) {
 
 // Variable, class, or function declarations may be prefixed by an 'export'
 // keyword. Handle the declaration as per usual after removing the 'export'.
 
-            alterations.push([
-                {start: node.start, end: node.declaration.start},
-                ""
-            ]);
-            const declaration_handler = handlers[node.declaration.type];
-            if (declaration_handler !== undefined) {
-                declaration_handler(node.declaration);
+                alterations.push([
+                    {start: node.start, end: node.declaration.start},
+                    ""
+                ]);
+                const declaration_handler = handlers[node.declaration.type];
+                if (declaration_handler !== undefined) {
+                    declaration_handler(node.declaration);
+                }
+            } else {
+                alterations.push([node, blanks(source, node)]);
             }
         },
         ClassDeclaration(node) {
@@ -1166,123 +1169,141 @@ function run_replize(source, scope, dynamic_specifiers = []) {
     );
 }
 
-if (import.meta.main) {
-    const indirect_eval = window.eval;
-    (function test_replize_continuity() {
-        const script = `
-            const x = "x";
-                let y = "y";
-            z();
-            function z() {
-                return "z";
-            }
-            let uninitialized;
-            const special_string_replacement_pattern = "$'";
-              const {
-                a,
-                b
-            } = {
-                a: "a",
-                b: "b"
-            };
-            let [c, d] = [a, b];
-            (function () {
-                const c = "not c";
-            }());
-            const e = import.meta.resolve("!e");
-            export function f() {
-                return "f";
-            }
-            export const g = "g";
-        `;
-        const gather = `
-            (function () {
-                return [x, y, z(), a, b, c, d, e, f(), g];
-            }());
-        `;
-        const scope = String(Math.random());
-        const results = [script, script, ""].map(function (script) {
-            return indirect_eval(
-                run_replize(script + "\n" + gather, scope, ["e"])
-            );
-        });
-        if (results.some(function (array) {
-            return array.join(" ") !== "x y z a b a b e f g";
-        })) {
+function test_replize_continuity() {
+    const script = `
+        const x = "x";
+            let y = "y";
+        z();
+        function z() {
+            return "z";
+        }
+        let uninitialized;
+        const special_string_replacement_pattern = "$'";
+          const {
+            a,
+            b
+        } = {
+            a: "a",
+            b: "b"
+        };
+        let [c, d] = [a, b];
+        (function () {
+            const c = "not c";
+        }());
+        const e = import.meta.resolve("!e");
+        export function f() {
+            return "f";
+        }
+        export const g = "g";
+    `;
+    const gather = `
+        (function () {
+            return [x, y, z(), a, b, c, d, e, f(), g];
+        }());
+    `;
+    const scope = String(Math.random());
+    const results = [script, script, ""].map(function (script) {
+        return window.eval(
+            run_replize(script + "\n" + gather, scope, ["e"])
+        );
+    });
+    if (results.some(function (array) {
+        return array.join(" ") !== "x y z a b a b e f g";
+    })) {
+        throw new Error("FAIL");
+    }
+}
+
+function test_replize_delayed_assignment() {
+    const scope = String(Math.random());
+    window.eval(run_replize(
+        `
+            let x = false;
+            setTimeout(function () {
+                x = true;
+            });
+        `,
+        scope
+    ));
+    return setTimeout(function () {
+        if (!window.eval(run_replize("x;", scope))) {
             throw new Error("FAIL");
         }
-    }());
-    (function test_replize_delayed_assignment() {
-        const scope = String(Math.random());
-        indirect_eval(run_replize(
+    });
+}
+
+function test_replize_strict_mode() {
+    const scope = String(Math.random());
+    let ok = false;
+    try {
+        window.eval(run_replize(
             `
-                let x = false;
-                setTimeout(function () {
+                (function () {
                     x = true;
-                });
+                }());
             `,
             scope
         ));
-        return setTimeout(function () {
-            if (!indirect_eval(run_replize("x;", scope))) {
-                throw new Error("FAIL");
+    } catch (_) {
+        ok = true;
+    }
+    if (!ok) {
+        throw new Error("FAIL");
+    }
+}
+
+function test_replize_top_level_await() {
+    const scope = String(Math.random());
+    const timer = setTimeout(function () {
+        throw new Error("FAIL timeout");
+    });
+    window.eval(run_replize(
+        `
+            if (true) {
+                let a;
+                a = await 42;
+                a + 1;
             }
-        });
-    }());
-    (function test_replize_strict_mode() {
-        const scope = String(Math.random());
-        let ok = false;
-        try {
-            indirect_eval(run_replize(
-                `
-                    (function () {
-                        x = true;
-                    }());
-                `,
-                scope
-            ));
-        } catch (_) {
-            ok = true;
-        }
-        if (!ok) {
+        `,
+        scope
+    )).then(function (value) {
+        clearTimeout(timer);
+        if (value !== 43) {
             throw new Error("FAIL");
         }
-    }());
-    (function test_replize_top_level_await() {
-        const scope = String(Math.random());
-        const timer = setTimeout(function () {
-            throw new Error("FAIL timeout");
-        });
-        indirect_eval(run_replize(
-            `
-                if (true) {
-                    let a;
-                    a = await 42;
-                    a + 1;
-                }
-            `,
-            scope
-        )).then(function (value) {
-            clearTimeout(timer);
-            if (value !== 43) {
-                throw new Error("FAIL");
+    });
+}
+
+function test_replize_main() {
+    const scope = String(Math.random());
+    const value = window.eval(run_replize(
+        `
+            if (import.meta.main) {
+                "OK"
             }
-        });
-    }());
-    (function test_replize_main() {
-        const scope = String(Math.random());
-        const value = indirect_eval(run_replize(
-            `
-                if (import.meta.main) {
-                    "OK"
-                }
-            `,
-            scope
-        ));
-        if (value !== "OK") {
-            throw new Error("FAIL");
-        }
-    }());
+        `,
+        scope
+    ));
+    if (value !== "OK") {
+        throw new Error("FAIL");
+    }
+}
+
+function test_replize_exports() {
+    const scope = String(Math.random());
+    const value = window.eval(run_replize(
+        `
+            const a = 1;
+            export {a};
+            export const b = a + 1;
+            export {c} from "./c.js";
+            export * from "./d.js";
+        `,
+        scope
+    ));
+    if (value !== 2) {
+        throw new Error("FAIL");
+    }
 }
 
 const utf8_encoder = new TextEncoder();
@@ -1766,6 +1787,19 @@ function make_repl(capabilities, on_start, on_eval, on_stop, specify) {
         serve,
         stop: on_stop
     });
+}
+
+if (import.meta.main) {
+    test_alter_string();
+    test_analyze_module();
+    test_analyze_top_immediate();
+    test_analyze_top_eventual();
+    test_replize_continuity();
+    test_replize_delayed_assignment();
+    test_replize_strict_mode();
+    test_replize_top_level_await();
+    test_replize_main();
+    test_replize_exports();
 }
 
 export default Object.freeze(make_repl);
