@@ -1389,6 +1389,21 @@ function make_repl(capabilities, on_start, on_eval, on_stop, specify) {
 //          A function that transforms each locator before it is provided as a
 //          specifier to a padawan.
 
+    function is_module(locator) {
+        if (locator.startsWith("file:///")) {
+            const headers = capabilities.headers(locator);
+            if (headers !== undefined) {
+                return Object.entries(headers).some(function ([name, value]) {
+                    return (
+                        name.toLowerCase() === "content-type"
+                        && value.toLowerCase().startsWith("text/javascript")
+                    );
+                });
+            }
+        }
+        return false;
+    }
+
 // These variables constitute the REPL's in-memory cache. Each variable holds an
 // object, containing locators as keys and Promises as values. By caching the
 // Promise and not the value, multiple callers can subscribe to the result of a
@@ -1396,8 +1411,9 @@ function make_repl(capabilities, on_start, on_eval, on_stop, specify) {
 
     let locating = Object.create(null);
     let reading = Object.create(null);
-    let hashing = Object.create(null);
+    let source_hashing = Object.create(null);
     let analyzing = Object.create(null);
+    let module_hashing = Object.create(null);
 
     function locate(specifier, parent_locator) {
 
@@ -1430,8 +1446,14 @@ function make_repl(capabilities, on_start, on_eval, on_stop, specify) {
 
         function invalidate() {
             delete reading[locator];
-            delete hashing[locator];
+            delete source_hashing[locator];
             delete analyzing[locator];
+
+// Because module hashes are recursively calculated, and because we keep no
+// picture of dependency trees previously traversed, a change to any file
+// potentially invalidates any module hash.
+
+            module_hashing = Object.create(null);
         }
 
         reading[locator] = Promise.resolve(
@@ -1477,8 +1499,8 @@ function make_repl(capabilities, on_start, on_eval, on_stop, specify) {
 
     function analyze(locator) {
 
-// The 'analyze' function analyzes the module at 'locator'. It is memoized
-// because analysis necessitates a full parse, which can be expensive.
+// The 'analyze' function analyzes the module at 'locator'. The analysis is
+// cached because analysis necessitates a full parse, which can be expensive.
 
         if (analyzing[locator] !== undefined) {
             return analyzing[locator];
@@ -1489,66 +1511,59 @@ function make_repl(capabilities, on_start, on_eval, on_stop, specify) {
         return analyzing[locator];
     }
 
-    function hash_source(locator) {
+    function source_hash(locator) {
 
-// The 'hash_source' function hashes the source of a module as a string. Its
-// result is cached.
+// The 'source_hash' function hashes the source of a module as a string. The
+// resulting hash is cached.
 
-        if (hashing[locator] !== undefined) {
-            return hashing[locator];
+        if (source_hashing[locator] !== undefined) {
+            return source_hashing[locator];
         }
-        hashing[locator] = read(locator).then(digest);
-        return hashing[locator];
+        source_hashing[locator] = read(locator).then(digest);
+        return source_hashing[locator];
     }
 
-    function is_module(locator) {
-        if (locator.startsWith("file:///")) {
-            const headers = capabilities.headers(locator);
-            if (headers !== undefined) {
-                return Object.entries(headers).some(function ([name, value]) {
-                    return (
-                        name.toLowerCase() === "content-type"
-                        && value.toLowerCase().startsWith("text/javascript")
-                    );
-                });
-            }
-        }
-        return false;
-    }
+    function module_hash(locator) {
 
-    function hash(locator) {
-
-// The 'hash' function produces a hash string for a module. It produces
-// undefined if the 'locator' does not refer to a module on disk.
+// The 'module_hash' function produces a hash string for a module. It produces
+// undefined if the 'locator' does not refer to a module on disk. The resulting
+// hash is tentatively cached.
 
 // The hash is dependent on:
 
 //  a) the source of the module itself, and
 //  b) the hashes of any modules it imports.
 
-// Note that this triggers a depth-first traversal of the entire dependency
-// tree, which would be excruciatingly slow were it not for the in-memory cache
-// employed by the above functions.
-
         if (!is_module(locator)) {
             return Promise.resolve();
         }
-        return Promise.all([
 
-// Hashing a hash of the source is equivalent to hashing the source itself, but
-// it is cheaper.
+// A depth-first traversal of the entire dependency tree is necessary to compute
+// the result, but such a workload grows exponentially with the depth. Despite
+// the in-memory cache employed by the preceeding functions, this workload can
+// still get out of hand. Fortunately, it is safe to cache the module hash
+// until a file in its dependency tree is changed.
 
-            hash_source(locator),
+        if (module_hashing[locator] !== undefined) {
+            return module_hashing[locator];
+        }
+        module_hashing[locator] = Promise.all([
+
+// Hashing a hash of the source is just as good as hashing the source itself,
+// only cheaper.
+
+            source_hash(locator),
             analyze(locator).then(function (module_analysis) {
                 return Promise.all(
                     all_specifiers(module_analysis).map(function (specifier) {
-                        return locate(specifier, locator).then(hash);
+                        return locate(specifier, locator).then(module_hash);
                     })
                 );
             })
-        ]).then(function ([source_hash, specifier_hashes]) {
-            return digest(source_hash, ...specifier_hashes);
+        ]).then(function ([the_source_hash, specifier_hashes]) {
+            return digest(the_source_hash, ...specifier_hashes);
         });
+        return module_hashing[locator];
     }
 
 // The 'hashes' object contains the last known hash of each locator.
@@ -1577,7 +1592,7 @@ function make_repl(capabilities, on_start, on_eval, on_stop, specify) {
 
             return Promise.resolve(locator);
         }
-        return hash(locator).then(function (the_hash) {
+        return module_hash(locator).then(function (the_hash) {
             if (the_hash === undefined) {
                 return locator;
             }
