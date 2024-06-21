@@ -2,6 +2,8 @@
 
 //  $ deno run /path/to/deno_padawan.js <tcp_port>
 
+/*jslint deno, null */
+
 function evaluate(script, import_specifiers, wait) {
 
 // The 'evaluate' function evaluates the 'script', after resolving any imported

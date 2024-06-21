@@ -3,6 +3,7 @@
 
 /*jslint node */
 
+import console from "node:console";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";

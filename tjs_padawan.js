@@ -2,6 +2,8 @@
 
 //  $ tjs run /path/to/tjs_padawan.js <tcp_port>
 
+/*jslint tjs, null */
+
 import webl_inspect from "./webl/webl_inspect.js";
 
 function reason(exception) {

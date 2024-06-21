@@ -5,6 +5,10 @@
 
 // Exceptions that occur outside of evaluation are printed to stderr.
 
+/*jslint node, bun */
+
+import console from "node:console";
+import process from "node:process";
 import net from "node:net";
 import util from "node:util";
 import readline from "node:readline";

@@ -3,6 +3,7 @@
 /*jslint node */
 
 import child_process from "node:child_process";
+import console from "node:console";
 import process from "node:process";
 import url from "node:url";
 import make_cmdl from "./cmdl.js";
