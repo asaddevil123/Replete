@@ -125,7 +125,12 @@ const padawan_create_script_template = `
         });
     };
     self.onerror = function (...args) {
-        return self.onunhandledrejection({reason: args[4]});
+
+// Sometimes the error argument is null, for example the "ResizeObserver loop
+// completed with undelivered notifications." error. In such cases, fall back to
+// the the message string.
+
+        return self.onunhandledrejection({reason: args[4] ?? args[0]});
     };
 
 // Padawans receive only one kind of message, containing the fulfillment of the
