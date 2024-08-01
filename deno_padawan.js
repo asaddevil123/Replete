@@ -112,5 +112,13 @@ Deno.connect({
     port: Number.parseInt(Deno.args[0])
 }).then(function (the_connection) {
     connection = the_connection;
+    window.onunhandledrejection = function (event) {
+        event.preventDefault();
+        console.error(event.reason);
+    };
+    window.onerror = function (event) {
+        event.preventDefault();
+        console.error(event.error);
+    };
     return read();
 });

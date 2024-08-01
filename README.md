@@ -183,8 +183,6 @@ An object containing environment variables made available to the Node.js REPL. I
 ### Deno REPL
 Like Node.js, [Deno](https://deno.com) is a command-line runtime based on V8, but it aims to behave more like a browser.
 
-The Deno REPL restarts whenever an unhandled exception or Promise rejection occurs outside of evaluation.
-
 #### options.which_deno, `--which_deno`
 The path to the Deno binary, `deno`. If Deno is in the `PATH` (see `options.deno_env`), this can simply be `"deno"`. Not required if Deno is hosting Replete.
 
