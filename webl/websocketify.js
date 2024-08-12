@@ -49,7 +49,7 @@ function websocketify(
 // The 'websocketify' function empowers an HTTP server to send and receive
 // WebSocket messages. The following callbacks must be provided:
 
-//  on_open(connection)
+//  on_open(connection, req)
 //      Called when a new connection is opened.
 
 //  on_receive(connection, message)
@@ -270,7 +270,7 @@ function websocketify(
             delete sockets[socket_id];
             on_close(connection, close_reason);
         });
-        return on_open(connection);
+        return on_open(connection, req);
     });
 }
 
