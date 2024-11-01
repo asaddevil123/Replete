@@ -12,7 +12,7 @@
 // When the status of the connection changes, this worker sends a boolean value.
 // Any other value is a message from the server.
 
-/*jslint browser, worker */
+/*jslint browser */
 
 let socket;
 
@@ -22,20 +22,21 @@ function connect_to_server(url) {
 
 // Inform the master that the connection is open.
 
-        self.postMessage(true);
+        postMessage(true);
     };
     socket.onclose = function () {
 
 // Inform the master that the connection is closed. Then attempt to restore it.
 
-        self.postMessage(false);
+        postMessage(false);
         return setTimeout(connect_to_server, 250, url);
     };
     socket.onmessage = function (event) {
-        self.postMessage(JSON.parse(event.data));
+        postMessage(JSON.parse(event.data));
     };
 }
-self.onmessage = function (event) {
+
+addEventListener("message", function (event) {
     if (typeof event.data === "string") {
 
 // The initial event contains the address of the WebSocket server.
@@ -43,4 +44,4 @@ self.onmessage = function (event) {
         return connect_to_server(event.data);
     }
     return socket.send(JSON.stringify(event.data));
-};
+});

@@ -3,7 +3,7 @@
 // Values nested within 'value' are inspected no deeper than 'maximum_depth'
 // levels.
 
-/*jslint browser, null */
+/*jslint browser, global, null */
 
 function inspect(value, maximum_depth = 10) {
 
@@ -171,23 +171,23 @@ function inspect(value, maximum_depth = 10) {
 }
 
 if (import.meta.main) {
-    window.console.log(inspect());
-    window.console.log(inspect(null));
-    window.console.log(inspect(123));
-    window.console.log(inspect(Infinity));
-    window.console.log(inspect(NaN));
-    window.console.log(inspect([1, {"2": [3, 4]}]));
-    window.console.log(inspect([1, {"2": [3, 4]}], 1));
-    window.console.log(inspect(new Uint8Array([0, 255])));
+    globalThis.console.log(inspect());
+    globalThis.console.log(inspect(null));
+    globalThis.console.log(inspect(123));
+    globalThis.console.log(inspect(Infinity));
+    globalThis.console.log(inspect(NaN));
+    globalThis.console.log(inspect([1, {"2": [3, 4]}]));
+    globalThis.console.log(inspect([1, {"2": [3, 4]}], 1));
+    globalThis.console.log(inspect(new Uint8Array([0, 255])));
     if (typeof document === "object") {
-        window.console.log(inspect(document.body));
+        globalThis.console.log(inspect(document.body));
     }
-    window.console.log(inspect(Math.random));
+    globalThis.console.log(inspect(Math.random));
     const not_circular = {};
-    window.console.log(inspect([not_circular, not_circular]));
+    globalThis.console.log(inspect([not_circular, not_circular]));
     const circular = Object.create(null);
     circular.self = circular;
-    window.console.log(inspect(circular));
+    globalThis.console.log(inspect(circular));
 }
 
 export default Object.freeze(inspect);

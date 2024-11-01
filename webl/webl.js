@@ -8,7 +8,7 @@
 // The "top" padawan executes code in the context of the current page, so is not
 // sandboxed at all. Only a single "top" padawan can exist at one time.
 
-/*jslint browser */
+/*jslint browser, global */
 
 import webl_inspect from "./webl_inspect.js";
 
@@ -59,15 +59,15 @@ const padawan_create_script_template = `
 // padawan to communicate with its master.
 
 // Which global object handles postage depends on the type of the padawan. If
-// the padawan is a popup, we grab a reference to the window.opener property
-// before it is deleted.
+// the padawan is a popup, we grab a reference to its opener before that
+// property is deleted.
 
     const global = (
-        self.opener      // popup
-        ?? self.parent   // iframe or top
-        ?? self          // worker
+        globalThis.opener       // popup
+        ?? globalThis.parent    // iframe or top
+        ?? globalThis           // worker
     );
-    self.$webl = Object.freeze({
+    globalThis.$webl = Object.freeze({
         send(message) {
 
 // Authenticate the message.
@@ -96,7 +96,7 @@ const padawan_create_script_template = `
 // master.
 
     const original = console.log;
-    self.console.log = function (...args) {
+    globalThis.console.log = function (...args) {
         $webl.send({
             name: "log",
             padawan: "<name>",
@@ -117,28 +117,28 @@ const padawan_create_script_template = `
 
 // Inform the master of any uncaught exceptions.
 
-    self.onunhandledrejection = function (event) {
+    globalThis.onunhandledrejection = function (event) {
         return $webl.send({
             name: "exception",
             padawan: "<name>",
             reason: $webl.reason(event.reason)
         });
     };
-    self.onerror = function (...args) {
+    globalThis.onerror = function (...args) {
 
 // Sometimes the error argument is null, for example the "ResizeObserver loop
 // completed with undelivered notifications." error. In such cases, fall back to
-// the the message string.
+// the message string.
 
-        return self.onunhandledrejection({reason: args[4] ?? args[0]});
+        return globalThis.onunhandledrejection({reason: args[4] ?? args[0]});
     };
 
 // Padawans receive only one kind of message, containing the fulfillment of the
 // 'padawan_eval_script_template'. We use an indirect eval to avoid exposing our
 // local variables.
 
-    self.onmessage = function (event) {
-        return self.eval(event.data);
+    globalThis.onmessage = function (event) {
+        return globalThis.eval(event.data);
     };
 
 // Finally, inform the master that the padawan is ready for instruction.
@@ -164,8 +164,8 @@ const padawan_eval_script_template = `
     Promise.all([
         <import_expressions>
     ]).then(function ($imports) {
-        self.$imports = $imports;
-        const value = self.eval(<payload_script_json>);
+        globalThis.$imports = $imports;
+        const value = globalThis.eval(<payload_script_json>);
         return (
             <wait>
             ? Promise.resolve(value).then($webl.inspect)
@@ -198,7 +198,7 @@ function make_top_padawan(
     if (top !== undefined) {
         top.destroy();
     }
-    window.addEventListener("message", on_message);
+    addEventListener("message", on_message);
     const script_element = document.createElement("script");
     script_element.textContent = fill(
         padawan_create_script_template,
@@ -207,10 +207,10 @@ function make_top_padawan(
     document.head.append(script_element);
     top = Object.freeze({
         send(message) {
-            window.postMessage(message);
+            postMessage(message);
         },
         destroy() {
-            window.removeEventListener("message", on_message);
+            removeEventListener("message", on_message);
             script_element.remove();
         }
     });
@@ -226,11 +226,11 @@ function make_iframe_padawan(
 
 // Omitting the "allow-same-origin" permission places the iframe in a different
 // origin from that of its master. This means that communication is only
-// possible via 'window.postMessage'.
+// possible via the global 'postMessage' function.
 
     sandbox = "allow-scripts"
 ) {
-    window.addEventListener("message", on_message);
+    addEventListener("message", on_message);
     if (iframe === undefined) {
         iframe = document.createElement("iframe");
         document.body.appendChild(iframe);
@@ -254,7 +254,7 @@ function make_iframe_padawan(
         },
         destroy() {
             iframe.remove();
-            window.removeEventListener("message", on_message);
+            removeEventListener("message", on_message);
         }
     });
 }
@@ -265,8 +265,8 @@ function make_popup_padawan(
     on_message,
     window_features
 ) {
-    window.addEventListener("message", on_message);
-    const padawan_window = window.open(
+    addEventListener("message", on_message);
+    const padawan_window = globalThis.open(
         undefined,
         String(name),
         window_features
@@ -287,7 +287,7 @@ function make_popup_padawan(
         },
         destroy() {
             padawan_window.close();
-            window.removeEventListener("message", on_message);
+            removeEventListener("message", on_message);
         }
     });
 }
@@ -567,8 +567,8 @@ function make_webl() {
 if (import.meta.main) {
     const webl = make_webl();
     const padawan = webl.padawan({
-        on_log: window.console.log,
-        on_exception: window.console.error,
+        on_log: globalThis.console.log,
+        on_exception: globalThis.console.error,
         name: "Foo #0",
         type: "iframe",
         iframe_style_object: {width: "200px", height: "200px"}
@@ -583,7 +583,7 @@ if (import.meta.main) {
         }
     ).then(
         function on_evaluated(report) {
-            window.console.log(report.evaluation);
+            globalThis.console.log(report.evaluation);
             return setTimeout(webl.destroy, 10000);
         }
     );

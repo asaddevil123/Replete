@@ -83,7 +83,7 @@ function make_webl_server(
 //              to exist.
 
 //  origin
-//      The client's window.location.origin value.
+//      The client's location.origin value.
 
     let sockets = [];
     let clients = new WeakMap();

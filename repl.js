@@ -107,7 +107,7 @@
 //      const console = 1;
 
 // would overwrite the global 'console' variable, preventing any future calls
-// to 'window.console.log'.
+// to 'globalThis.console.log'.
 
 // Replete takes a more sophisticated approach. A variable named '$scope' is
 // defined, which is an object holding the value of every declared identifier.
@@ -316,7 +316,7 @@
 // Though 'import.meta.main' is not yet standardized, it is supported by at
 // least two runtimes.
 
-/*jslint browser */
+/*jslint web, global */
 
 import {parse} from "acorn";
 import {simple, recursive} from "acorn-walk";
@@ -1203,7 +1203,7 @@ function test_replize_continuity() {
     `;
     const scope = String(Math.random());
     const results = [script, script, ""].map(function (script) {
-        return window.eval(
+        return globalThis.eval(
             run_replize(script + "\n" + gather, scope, ["e"])
         );
     });
@@ -1216,7 +1216,7 @@ function test_replize_continuity() {
 
 function test_replize_delayed_assignment() {
     const scope = String(Math.random());
-    window.eval(run_replize(
+    globalThis.eval(run_replize(
         `
             let x = false;
             setTimeout(function () {
@@ -1226,7 +1226,7 @@ function test_replize_delayed_assignment() {
         scope
     ));
     return setTimeout(function () {
-        if (!window.eval(run_replize("x;", scope))) {
+        if (!globalThis.eval(run_replize("x;", scope))) {
             throw new Error("FAIL");
         }
     });
@@ -1236,7 +1236,7 @@ function test_replize_strict_mode() {
     const scope = String(Math.random());
     let ok = false;
     try {
-        window.eval(run_replize(
+        globalThis.eval(run_replize(
             `
                 (function () {
                     x = true;
@@ -1257,7 +1257,7 @@ function test_replize_top_level_await() {
     const timer = setTimeout(function () {
         throw new Error("FAIL timeout");
     });
-    window.eval(run_replize(
+    globalThis.eval(run_replize(
         `
             if (true) {
                 let a;
@@ -1276,7 +1276,7 @@ function test_replize_top_level_await() {
 
 function test_replize_main() {
     const scope = String(Math.random());
-    const value = window.eval(run_replize(
+    const value = globalThis.eval(run_replize(
         `
             if (import.meta.main) {
                 "OK"
@@ -1291,7 +1291,7 @@ function test_replize_main() {
 
 function test_replize_exports() {
     const scope = String(Math.random());
-    const value = window.eval(run_replize(
+    const value = globalThis.eval(run_replize(
         `
             const a = 1;
             export {a};

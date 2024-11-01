@@ -5,7 +5,7 @@
 
 // Exceptions that occur outside of evaluation are printed to stderr.
 
-/*jslint node, bun */
+/*jslint node, bun, global */
 
 import console from "node:console";
 import process from "node:process";

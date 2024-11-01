@@ -17,10 +17,10 @@ const worker = new Worker("./webl_relay.js");
 // Inform the worker of the WebSockets endpoint.
 
 const websockets_url = (
-    window.location.protocol === "http:"
+    location.protocol === "http:"
     ? "ws://"
     : "wss://"
-) + window.location.host;
+) + location.host;
 worker.postMessage(websockets_url);
 
 // Each type of message received from the server invokes a different handler
@@ -129,11 +129,11 @@ worker.onmessage = function (event) {
 
             if (webl === undefined) {
                 webl = make_webl();
-                window.onbeforeunload = webl.destroy;
+                addEventListener("beforeunload", webl.destroy);
                 document.title = "WEBL";
                 worker.postMessage({
                     type: "ready",
-                    value: window.location.origin
+                    value: location.origin
                 });
             } else {
 
@@ -149,7 +149,7 @@ worker.onmessage = function (event) {
 // we terminate the relay worker before unloading the page.
 
                 worker.terminate();
-                window.location.reload();
+                location.reload();
             }
         } else {
 

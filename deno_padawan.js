@@ -2,7 +2,7 @@
 
 //  $ deno run /path/to/deno_padawan.js <tcp_port>
 
-/*jslint deno, null */
+/*jslint deno, global, null */
 
 function evaluate(script, import_specifiers, wait) {
 
@@ -17,12 +17,12 @@ function evaluate(script, import_specifiers, wait) {
 
 // The imported modules are provided as a global variable.
 
-        window.$imports = modules;
+        globalThis.$imports = modules;
 
 // The script is evaluated using an "indirect" eval, depriving it of access to
 // the local scope.
 
-        const value = window.eval(script);
+        const value = globalThis.eval(script);
         return (
             wait
             ? Promise.resolve(value).then(Deno.inspect)
@@ -112,13 +112,13 @@ Deno.connect({
     port: Number.parseInt(Deno.args[0])
 }).then(function (the_connection) {
     connection = the_connection;
-    window.onunhandledrejection = function (event) {
+    addEventListener("unhandledrejection", function (event) {
         event.preventDefault();
-        console.error(event.reason);
-    };
-    window.onerror = function (event) {
+        globalThis.console.error(event.reason);
+    });
+    addEventListener("error", function (event) {
         event.preventDefault();
-        console.error(event.error);
-    };
+        globalThis.console.error(event.error);
+    });
     return read();
 });

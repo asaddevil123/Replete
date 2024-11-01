@@ -2,7 +2,7 @@
 
 //  $ tjs run /path/to/tjs_padawan.js <tcp_port>
 
-/*jslint tjs, null */
+/*jslint tjs, global, null */
 
 import webl_inspect from "./webl/webl_inspect.js";
 
@@ -26,8 +26,8 @@ function evaluate(script, import_specifiers, wait) {
             return import(specifier);
         })
     ).then(function (modules) {
-        window.$imports = modules;
-        const value = window.eval(script);
+        globalThis.$imports = modules;
+        const value = globalThis.eval(script);
         return (
             wait
             ? Promise.resolve(value).then(webl_inspect)
